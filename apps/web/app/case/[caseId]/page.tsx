@@ -126,6 +126,14 @@ type PacketExportRecord = {
   export_id: number;
   case_id: number;
   export_type: "initial" | "appeal";
+  metrics_json: Record<string, unknown>;
+  created_at: string;
+};
+
+type PacketExportDetail = {
+  export_id: number;
+  case_id: number;
+  export_type: "initial" | "appeal";
   packet_json: Record<string, unknown>;
   metrics_json: Record<string, unknown>;
   pdf_base64: string;
@@ -203,6 +211,7 @@ function CaseWorkspaceScreen() {
   const [openCitationFieldId, setOpenCitationFieldId] = useState<string | null>(null);
   const [denial, setDenial] = useState<DenialAnalysis | null>(null);
   const [exports, setExports] = useState<PacketExportRecord[]>([]);
+  const [exportDownloads, setExportDownloads] = useState<Record<number, PacketExportDetail>>({});
 
   const [attestChecked, setAttestChecked] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -227,6 +236,10 @@ function CaseWorkspaceScreen() {
     }
     return map;
   }, [autofill]);
+  const evidenceDocuments = useMemo(
+    () => documents.filter((document) => document.document_kind === "evidence"),
+    [documents],
+  );
 
   useEffect(() => {
     let active = true;
@@ -262,6 +275,7 @@ function CaseWorkspaceScreen() {
         setDocuments(caseDocuments);
         setAutofill(caseAutofill);
         setExports(caseExports);
+        setExportDownloads({});
         setDenial(currentDenial);
 
         const loadedTemplate = getServiceLineTemplate(currentCase.service_line_template_id);
@@ -367,6 +381,20 @@ function CaseWorkspaceScreen() {
       auth: true,
     });
     setExports(latest);
+  }
+
+  async function fetchExportDetail(exportId: number): Promise<PacketExportDetail> {
+    const cached = exportDownloads[exportId];
+    if (cached) return cached;
+    if (!caseRecord) {
+      throw new Error("Case not loaded");
+    }
+    const detail = await apiRequest<PacketExportDetail>(
+      `/cases/${caseRecord.id}/exports/${exportId}`,
+      { auth: true },
+    );
+    setExportDownloads((current) => ({ ...current, [exportId]: detail }));
+    return detail;
   }
 
   async function handleSaveAnswers() {
@@ -514,13 +542,23 @@ function CaseWorkspaceScreen() {
     setError(null);
 
     try {
-      const payload = await apiRequest<PacketExportRecord>(`/cases/${caseRecord.id}/exports/generate`, {
+      const payload = await apiRequest<PacketExportDetail>(`/cases/${caseRecord.id}/exports/generate`, {
         method: "POST",
         auth: true,
         body: { export_type: exportType },
       });
 
-      setExports((current) => [payload, ...current.filter((item) => item.export_id !== payload.export_id)]);
+      setExportDownloads((current) => ({ ...current, [payload.export_id]: payload }));
+      setExports((current) => [
+        {
+          export_id: payload.export_id,
+          case_id: payload.case_id,
+          export_type: payload.export_type,
+          metrics_json: payload.metrics_json,
+          created_at: payload.created_at,
+        },
+        ...current.filter((item) => item.export_id !== payload.export_id),
+      ]);
       setToast(exportType === "appeal" ? "Appeal packet generated" : "Packet generated");
       setTimeout(() => setToast(null), 2400);
       await refreshExports();
@@ -865,10 +903,10 @@ function CaseWorkspaceScreen() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button onClick={handleRunAutofill} disabled={autofilling || documents.length === 0}>
+            <Button onClick={handleRunAutofill} disabled={autofilling || evidenceDocuments.length === 0}>
               {autofilling ? "Autofilling..." : "Autofill from evidence"}
             </Button>
-            {documents.length === 0 ? (
+            {evidenceDocuments.length === 0 ? (
               <p className="text-xs text-[var(--pp-color-muted)]">Upload a document in Evidence first.</p>
             ) : null}
           </div>
@@ -1061,11 +1099,21 @@ function CaseWorkspaceScreen() {
                     <Button
                       variant="ghost"
                       onClick={() =>
-                        downloadBase64(
-                          `case-${item.case_id}-${item.export_type}-${item.export_id}.pdf`,
-                          item.pdf_base64,
-                          "application/pdf",
-                        )
+                        void fetchExportDetail(item.export_id)
+                          .then((detail) =>
+                            downloadBase64(
+                              `case-${item.case_id}-${item.export_type}-${item.export_id}.pdf`,
+                              detail.pdf_base64,
+                              "application/pdf",
+                            ),
+                          )
+                          .catch((downloadError) =>
+                            setError(
+                              downloadError instanceof Error
+                                ? downloadError.message
+                                : "Failed to download PDF",
+                            ),
+                          )
                       }
                     >
                       Download PDF
@@ -1073,11 +1121,21 @@ function CaseWorkspaceScreen() {
                     <Button
                       variant="ghost"
                       onClick={() =>
-                        downloadText(
-                          `case-${item.case_id}-${item.export_type}-${item.export_id}.packet.json`,
-                          JSON.stringify(item.packet_json, null, 2),
-                          "application/json",
-                        )
+                        void fetchExportDetail(item.export_id)
+                          .then((detail) =>
+                            downloadText(
+                              `case-${item.case_id}-${item.export_type}-${item.export_id}.packet.json`,
+                              JSON.stringify(detail.packet_json, null, 2),
+                              "application/json",
+                            ),
+                          )
+                          .catch((downloadError) =>
+                            setError(
+                              downloadError instanceof Error
+                                ? downloadError.message
+                                : "Failed to download packet JSON",
+                            ),
+                          )
                       }
                     >
                       Download packet.json
