@@ -1,0 +1,17 @@
+{
+  "name": "packetpilot-priorauth",
+  "private": true,
+  "packageManager": "pnpm@10.28.2",
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "format": "prettier --check ."
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2",
+    "turbo": "^2.6.1"
+  }
+}
