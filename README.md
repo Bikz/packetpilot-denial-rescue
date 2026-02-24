@@ -102,3 +102,10 @@ You should see:
 - `"backend": "medgemma"`
 - `"strict_mode": true`
 - `"model_id": "google/medgemma-1.5-4b-it"`
+
+Production quick-check helper:
+
+```bash
+chmod +x infra/scripts/verify_model_status.sh
+./infra/scripts/verify_model_status.sh https://your-render-api-domain
+```
