@@ -1,0 +1,127 @@
+{
+  "id": "imaging-mri-lumbar-spine",
+  "name": "MRI Lumbar Spine",
+  "description": "DTR-style questionnaire for MRI lumbar spine prior authorization.",
+  "requiredFieldIds": [
+    "primary_diagnosis",
+    "symptom_duration_weeks",
+    "neurologic_deficit",
+    "conservative_therapy_weeks",
+    "pt_trial_documented",
+    "prior_imaging_date",
+    "clinical_rationale"
+  ],
+  "evidenceChecklist": [
+    {
+      "id": "recent_clinic_note",
+      "label": "Recent clinic note",
+      "description": "Most recent office or specialist note with exam findings.",
+      "required": true
+    },
+    {
+      "id": "pt_trial_documentation",
+      "label": "Conservative therapy documentation",
+      "description": "Physical therapy or conservative treatment attempts with duration.",
+      "required": true
+    },
+    {
+      "id": "prior_imaging_report",
+      "label": "Prior imaging report",
+      "description": "Most relevant prior X-ray/CT/imaging interpretation.",
+      "required": true
+    },
+    {
+      "id": "medication_history",
+      "label": "Medication history",
+      "description": "Analgesic/anti-inflammatory medication trials and outcomes.",
+      "required": false
+    }
+  ],
+  "questionnaire": {
+    "sections": [
+      {
+        "id": "clinical-context",
+        "title": "Clinical Context",
+        "description": "Summarize diagnosis and severity indicators.",
+        "items": [
+          {
+            "fieldId": "primary_diagnosis",
+            "label": "Primary diagnosis",
+            "type": "text",
+            "required": true,
+            "placeholder": "e.g., Lumbar radiculopathy"
+          },
+          {
+            "fieldId": "symptom_duration_weeks",
+            "label": "Symptom duration (weeks)",
+            "type": "text",
+            "required": true,
+            "placeholder": "e.g., 12"
+          },
+          {
+            "fieldId": "neurologic_deficit",
+            "label": "Neurologic deficit present",
+            "type": "select",
+            "required": true,
+            "options": [
+              { "label": "Yes", "value": "yes" },
+              { "label": "No", "value": "no" },
+              { "label": "Unknown", "value": "unknown" }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "conservative-management",
+        "title": "Conservative Management",
+        "description": "Document non-advanced interventions before MRI.",
+        "items": [
+          {
+            "fieldId": "conservative_therapy_weeks",
+            "label": "Conservative therapy duration (weeks)",
+            "type": "text",
+            "required": true,
+            "placeholder": "e.g., 8"
+          },
+          {
+            "fieldId": "pt_trial_documented",
+            "label": "Physical therapy trial documented",
+            "type": "select",
+            "required": true,
+            "options": [
+              { "label": "Yes", "value": "yes" },
+              { "label": "No", "value": "no" }
+            ]
+          },
+          {
+            "fieldId": "prior_imaging_date",
+            "label": "Date of prior imaging",
+            "type": "date",
+            "required": true
+          }
+        ]
+      },
+      {
+        "id": "justification",
+        "title": "Clinical Justification",
+        "description": "Provide payer-facing medical necessity rationale.",
+        "items": [
+          {
+            "fieldId": "red_flag_symptoms",
+            "label": "Red flag symptoms",
+            "type": "textarea",
+            "required": false,
+            "placeholder": "List severe/progressive findings if present"
+          },
+          {
+            "fieldId": "clinical_rationale",
+            "label": "Clinical rationale",
+            "type": "textarea",
+            "required": true,
+            "placeholder": "Concise rationale for MRI necessity"
+          }
+        ]
+      }
+    ]
+  }
+}

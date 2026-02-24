@@ -8,6 +8,7 @@ from pydantic import BaseModel, EmailStr, Field
 RoleType = Literal["coordinator", "clinician", "admin"]
 DeploymentMode = Literal["standalone", "smart_on_fhir"]
 CaseStatus = Literal["draft", "in_review", "submitted", "denied"]
+QuestionnaireFieldState = Literal["missing", "filled", "verified"]
 
 
 class UserResponse(BaseModel):
@@ -103,3 +104,60 @@ class CaseResponse(BaseModel):
     status: CaseStatus
     created_at: datetime
     updated_at: datetime
+
+
+class QuestionnaireAnswerInput(BaseModel):
+    value: str | None = None
+    state: QuestionnaireFieldState
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class CaseQuestionnaireUpdateRequest(BaseModel):
+    answers: dict[str, QuestionnaireAnswerInput]
+
+
+class QuestionnaireOptionResponse(BaseModel):
+    label: str
+    value: str
+
+
+class QuestionnaireItemResponse(BaseModel):
+    field_id: str
+    label: str
+    type: str
+    required: bool
+    placeholder: str | None = None
+    options: list[QuestionnaireOptionResponse] = Field(default_factory=list)
+
+
+class QuestionnaireSectionResponse(BaseModel):
+    id: str
+    title: str
+    description: str
+    items: list[QuestionnaireItemResponse]
+
+
+class EvidenceChecklistItemResponse(BaseModel):
+    id: str
+    label: str
+    description: str
+    required: bool
+
+
+class QuestionnaireAnswerResponse(BaseModel):
+    value: str | None = None
+    state: QuestionnaireFieldState
+    note: str | None = None
+
+
+class CaseQuestionnaireResponse(BaseModel):
+    case_id: int
+    template_id: str
+    required_field_ids: list[str]
+    sections: list[QuestionnaireSectionResponse]
+    evidence_checklist: list[EvidenceChecklistItemResponse]
+    answers: dict[str, QuestionnaireAnswerResponse]
+    missing_required_field_ids: list[str]
+    attested_at: datetime | None = None
+    attested_by_email: str | None = None
+    export_enabled: bool

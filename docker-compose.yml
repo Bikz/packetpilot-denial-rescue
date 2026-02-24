@@ -17,8 +17,8 @@ services:
 
   api:
     build:
-      context: ./apps/api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/api/Dockerfile
     environment:
       FHIR_BASE_URL: http://fhir:8080/fhir
       ALLOWED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
