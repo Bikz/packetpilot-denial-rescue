@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: packetpilot-denial-rescue
+    runtime: docker
+    rootDir: .
+    branch: main
+    autoDeploy: yes
+    dockerContext: .
+    dockerfilePath: ./apps/api/Dockerfile
+    plan: free
+    healthCheckPath: /healthz
+    envVars:
+      - key: APP_SECRET
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: MODEL_MODE
+        sync: false
+      - key: MODEL_ID
+        sync: false
+      - key: MODEL_DEVICE
+        sync: false
+      - key: MODEL_STRICT
+        sync: false
+      - key: HUGGING_FACE_HUB_TOKEN
+        sync: false
