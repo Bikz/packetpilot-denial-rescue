@@ -1,63 +1,13 @@
 import { expect, test } from "@playwright/test";
 
+import {
+  CLINICIAN_USER,
+  ensureAdminAndLogin,
+  ensureClinicianUser,
+  signIn,
+} from "./helpers/auth";
+
 test.setTimeout(180_000);
-
-const API_BASE = "http://127.0.0.1:8000";
-
-async function signIn(page: import("@playwright/test").Page, email: string, password: string) {
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await page.waitForURL("**/queue");
-}
-
-async function ensureAdminAndLogin(page: import("@playwright/test").Page) {
-  await page.goto("/onboarding/admin");
-
-  const bootstrapHeading = page.getByRole("heading", { name: "Create first admin account" });
-  const initializedHeading = page.getByRole("heading", { name: "Workspace already initialized" });
-
-  await expect(
-    page
-      .getByRole("heading")
-      .filter({ hasText: /Create first admin account|Workspace already initialized/ }),
-  ).toBeVisible();
-
-  if (await bootstrapHeading.isVisible()) {
-    await page.getByLabel("Organization name").fill("Northwind Clinic");
-    await page.getByLabel("Full name").fill("Alex Kim");
-    await page.getByLabel("Email").fill("admin@northwind.com");
-    await page.getByLabel("Password").fill("super-secret-123");
-    await page.getByRole("button", { name: "Create admin" }).click();
-    await page.waitForURL("**/onboarding/done");
-  } else if (await initializedHeading.isVisible()) {
-    await page.getByRole("link", { name: "Go to login" }).click();
-  }
-
-  await signIn(page, "admin@northwind.com", "super-secret-123");
-}
-
-async function ensureClinicianUser(request: import("@playwright/test").APIRequestContext) {
-  const login = await request.post(`${API_BASE}/auth/login`, {
-    data: {
-      email: "admin@northwind.com",
-      password: "super-secret-123",
-    },
-  });
-  expect(login.ok()).toBeTruthy();
-  const adminToken = (await login.json()).access_token as string;
-
-  await request.post(`${API_BASE}/auth/users`, {
-    headers: { Authorization: `Bearer ${adminToken}` },
-    data: {
-      email: "clinician@northwind.com",
-      full_name: "Case Clinician",
-      role: "clinician",
-      password: "clinician-secret-123",
-    },
-  });
-}
 
 async function createCaseAndRunAutofill(page: import("@playwright/test").Page): Promise<string> {
   await Promise.all([
@@ -102,7 +52,7 @@ async function createCaseAndRunAutofill(page: import("@playwright/test").Page): 
 
 async function loginClinicianAndAttest(page: import("@playwright/test").Page, caseUrl: string) {
   await page.evaluate(() => window.localStorage.clear());
-  await signIn(page, "clinician@northwind.com", "clinician-secret-123");
+  await signIn(page, CLINICIAN_USER);
   await page.goto(caseUrl);
 
   await page.getByRole("button", { name: "Review" }).click();

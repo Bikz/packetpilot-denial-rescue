@@ -9,7 +9,7 @@ export default defineConfig({
   timeout: 30_000,
   retries: process.env.CI ? 2 : 0,
   use: {
-    baseURL: "http://127.0.0.1:3000",
+    baseURL: "http://localhost:3000",
     trace: "on-first-retry",
   },
   webServer: [
@@ -29,7 +29,7 @@ export default defineConfig({
       env: {
         ...process.env,
         APP_SECRET: "playwright-secret-0123456789-abcdefghijklmnopqrstuvwxyz",
-        FHIR_BASE_URL: "http://127.0.0.1:8081/fhir",
+        FHIR_BASE_URL: "http://localhost:8081/fhir",
       },
     },
     {
@@ -40,7 +40,7 @@ export default defineConfig({
       timeout: 120_000,
       env: {
         ...process.env,
-        NEXT_PUBLIC_API_BASE_URL: "http://127.0.0.1:8000",
+        NEXT_PUBLIC_API_BASE_URL: "http://localhost:8000",
       },
     },
   ],
