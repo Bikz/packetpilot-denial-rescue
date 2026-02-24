@@ -1,16 +1,40 @@
 services:
-  web:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
+  fhir:
+    image: hapiproject/hapi:latest
     ports:
-      - "3000:3000"
+      - "8080:8080"
+
+  fhir-seed:
+    image: curlimages/curl:8.11.1
     depends_on:
-      - api
+      - fhir
+    environment:
+      FHIR_BASE_URL: http://fhir:8080/fhir
+    volumes:
+      - ./infra/fhir:/seed:ro
+    entrypoint: ["/bin/sh", "/seed/seed.sh"]
+    restart: "no"
 
   api:
     build:
       context: ./apps/api
       dockerfile: Dockerfile
+    environment:
+      FHIR_BASE_URL: http://fhir:8080/fhir
+      ALLOWED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
     ports:
       - "8000:8000"
+    depends_on:
+      fhir-seed:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
