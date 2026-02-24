@@ -1,0 +1,102 @@
+from __future__ import annotations
+
+from fastapi.testclient import TestClient
+
+
+def _bootstrap_and_token(client: TestClient) -> str:
+    response = client.post(
+        "/auth/bootstrap",
+        json={
+            "organization_name": "Northwind Clinic",
+            "full_name": "Alex Kim",
+            "email": "admin@northwind.com",
+            "password": "super-secret-123",
+        },
+    )
+    assert response.status_code == 200
+    return response.json()["access_token"]
+
+
+def _create_case(client: TestClient, token: str) -> int:
+    headers = {"Authorization": f"Bearer {token}"}
+    response = client.post(
+        "/cases",
+        headers=headers,
+        json={
+            "patient_id": "pat-001",
+            "payer_label": "Aetna Gold",
+            "service_line_template_id": "imaging-mri-lumbar-spine",
+        },
+    )
+    assert response.status_code == 201
+    return int(response.json()["id"])
+
+
+def test_document_upload_and_autofill_generates_citations(client: TestClient) -> None:
+    token = _bootstrap_and_token(client)
+    case_id = _create_case(client, token)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    document_text = """
+Primary diagnosis: Lumbar radiculopathy
+Symptom duration (weeks): 12
+Neurologic deficit present: yes
+Conservative therapy duration (weeks): 8
+Physical therapy trial documented: yes
+Date of prior imaging: 2025-10-22
+Clinical rationale: Persistent neurologic deficits and failed conservative treatment justify MRI authorization.
+""".strip()
+
+    upload = client.post(
+        f"/cases/{case_id}/documents/upload",
+        headers=headers,
+        files={"file": ("clinical-note.txt", document_text.encode("utf-8"), "text/plain")},
+    )
+
+    assert upload.status_code == 200
+    uploaded_doc = upload.json()
+    assert uploaded_doc["filename"] == "clinical-note.txt"
+    assert "Lumbar radiculopathy" in uploaded_doc["extracted_text"]
+
+    run = client.post(f"/cases/{case_id}/autofill", headers=headers)
+    assert run.status_code == 200
+    payload = run.json()
+
+    populated = [fill for fill in payload["fills"] if fill["status"] != "missing"]
+    assert len(populated) >= 5
+
+    for fill in populated:
+        assert fill["citations"]
+        for citation in fill["citations"]:
+            assert citation["doc_id"] == uploaded_doc["id"]
+            assert citation["page"] == 1
+            assert citation["end"] > citation["start"]
+
+    questionnaire = client.get(f"/cases/{case_id}/questionnaire", headers=headers)
+    assert questionnaire.status_code == 200
+    answers = questionnaire.json()["answers"]
+    assert answers["primary_diagnosis"]["value"] == "lumbar radiculopathy"
+    assert answers["clinical_rationale"]["value"]
+
+
+def test_manual_questionnaire_path_works_without_autofill(client: TestClient) -> None:
+    token = _bootstrap_and_token(client)
+    case_id = _create_case(client, token)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    update = client.put(
+        f"/cases/{case_id}/questionnaire",
+        headers=headers,
+        json={
+            "answers": {
+                "primary_diagnosis": {
+                    "value": "Lumbar radiculopathy",
+                    "state": "verified",
+                    "note": "Manual chart review",
+                }
+            }
+        },
+    )
+
+    assert update.status_code == 200
+    assert update.json()["answers"]["primary_diagnosis"]["value"] == "Lumbar radiculopathy"

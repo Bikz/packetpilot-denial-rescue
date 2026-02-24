@@ -28,6 +28,23 @@ services:
       fhir-seed:
         condition: service_completed_successfully
 
+  api-medgemma:
+    profiles: ["model"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      FHIR_BASE_URL: http://fhir:8080/fhir
+      ALLOWED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      MODEL_MODE: medgemma
+      MODEL_ID: google/medgemma-1.5-4b-it
+      MODEL_DEVICE: cpu
+    ports:
+      - "8001:8000"
+    depends_on:
+      fhir-seed:
+        condition: service_completed_successfully
+
   web:
     build:
       context: .
