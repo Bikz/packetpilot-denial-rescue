@@ -663,8 +663,9 @@ function CaseWorkspaceScreen() {
       eyebrow="Case Workspace"
       title={`Case #${Number.isNaN(caseId) ? "-" : caseId}`}
       description="Complete requirements, ingest evidence, and verify model-assisted field fills."
+      layout="workspace"
     >
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Link href="/queue">
             <Button variant="secondary">Queue</Button>
@@ -682,15 +683,35 @@ function CaseWorkspaceScreen() {
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
       {caseRecord ? (
-        <Card className="space-y-2">
-          <p className="text-sm font-semibold">Patient: {patientName(snapshot) ?? caseRecord.patient_id}</p>
-          <p className="text-sm text-[var(--pp-color-muted)]">Payer: {caseRecord.payer_label}</p>
-          <p className="text-sm text-[var(--pp-color-muted)]">Template: {caseRecord.service_line_template_id}</p>
-          <p className="text-sm text-[var(--pp-color-muted)]">Status: {caseRecord.status}</p>
+        <Card className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--pp-color-muted)]">
+              Patient
+            </p>
+            <p className="text-sm font-semibold">{patientName(snapshot) ?? caseRecord.patient_id}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--pp-color-muted)]">
+              Payer
+            </p>
+            <p className="text-sm">{caseRecord.payer_label}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--pp-color-muted)]">
+              Template
+            </p>
+            <p className="text-sm">{caseRecord.service_line_template_id}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--pp-color-muted)]">
+              Status
+            </p>
+            <p className="text-sm font-semibold capitalize">{caseRecord.status.replace("_", " ")}</p>
+          </div>
         </Card>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-white/80 p-2 sm:grid-cols-5">
         {TABS.map((tab) => (
           <button
             key={tab.id}
@@ -698,8 +719,8 @@ function CaseWorkspaceScreen() {
             onClick={() => setSelectedTab(tab.id)}
             className={
               selectedTab === tab.id
-                ? "rounded-[var(--pp-radius-md)] border border-[var(--pp-color-ring)] bg-white px-3 py-2 text-left text-sm font-semibold"
-                : "rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-[var(--pp-color-surface)] px-3 py-2 text-left text-sm"
+                ? "rounded-[var(--pp-radius-md)] border border-[var(--pp-color-ring)] bg-gradient-to-b from-white to-[#f3f8ff] px-3 py-2 text-left text-sm font-semibold text-[#0a3f7d]"
+                : "rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-[var(--pp-color-surface)] px-3 py-2 text-left text-sm text-[var(--pp-color-muted)] hover:text-[var(--pp-color-text)]"
             }
           >
             {tab.label}

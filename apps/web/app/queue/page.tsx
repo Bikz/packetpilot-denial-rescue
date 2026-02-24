@@ -65,12 +65,16 @@ function QueueScreen() {
       eyebrow="Queue"
       title="Prior auth queue"
       description="Track active prior authorization requests and start new cases."
+      layout="workspace"
     >
-      <div className="flex items-center justify-between rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-white px-3 py-2 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-white/90 px-4 py-3 text-sm">
         <div>
           <p className="font-semibold">{user?.full_name ?? "Signed in"}</p>
           <p className="text-[var(--pp-color-muted)]">{user?.email}</p>
         </div>
+        <p className="rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700">
+          {cases.length} active case{cases.length === 1 ? "" : "s"}
+        </p>
         <Button
           variant="ghost"
           onClick={() => {
@@ -82,7 +86,7 @@ function QueueScreen() {
         </Button>
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Link href="/queue">
             <Button variant="secondary">Queue</Button>
@@ -112,13 +116,16 @@ function QueueScreen() {
       ) : null}
 
       {!loading && !error && cases.length > 0 ? (
-        <div className="space-y-3">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {cases.map((item) => (
             <Link key={item.id} href={`/case/${item.id}`}>
-              <Card className="space-y-2 transition hover:border-[var(--pp-color-ring)]">
-                <p className="text-sm font-semibold">
-                  Case #{item.id} · {statusLabel(item.status)}
-                </p>
+              <Card className="space-y-3 transition-all duration-200 hover:-translate-y-[1px] hover:border-[var(--pp-color-ring)]">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold">Case #{item.id}</p>
+                  <span className="rounded-full bg-[var(--pp-color-surface-strong)] px-2 py-1 text-xs font-semibold text-[#0a3f7d]">
+                    {statusLabel(item.status)}
+                  </span>
+                </div>
                 <p className="text-sm text-[var(--pp-color-muted)]">Patient: {item.patient_id}</p>
                 <p className="text-sm text-[var(--pp-color-muted)]">Payer: {item.payer_label}</p>
                 <p className="text-xs text-[var(--pp-color-muted)]">

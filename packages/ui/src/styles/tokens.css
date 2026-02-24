@@ -1,18 +1,20 @@
 :root {
-  --pp-color-background: #f3f6fb;
+  --pp-color-background: #eef4fb;
   --pp-color-card: #ffffff;
-  --pp-color-surface: #f7f9fc;
-  --pp-color-surface-strong: #ecf1f7;
-  --pp-color-border: #d9e3ef;
-  --pp-color-text: #111e32;
-  --pp-color-muted: #4d5d76;
-  --pp-color-primary: #0b6cff;
-  --pp-color-primary-foreground: #f5f8ff;
-  --pp-color-ring: #5a9aff;
+  --pp-color-surface: #f8fbff;
+  --pp-color-surface-strong: #e8f0fb;
+  --pp-color-border: #cad8ea;
+  --pp-color-text: #0f2238;
+  --pp-color-muted: #4f6179;
+  --pp-color-primary: #0f6ad8;
+  --pp-color-primary-foreground: #f5faff;
+  --pp-color-ring: #2f83ef;
+  --pp-color-accent: #0ea5a3;
+  --pp-color-warning: #d97706;
 
-  --pp-radius-md: 12px;
-  --pp-radius-lg: 18px;
-  --pp-shadow-sm: 0 8px 28px rgba(17, 30, 50, 0.08);
+  --pp-radius-md: 14px;
+  --pp-radius-lg: 24px;
+  --pp-shadow-sm: 0 14px 36px rgba(15, 34, 56, 0.11);
 
   --pp-space-1: 0.25rem;
   --pp-space-2: 0.5rem;
@@ -21,12 +23,15 @@
   --pp-space-5: 1.25rem;
   --pp-space-6: 1.5rem;
 
-  --pp-font-sans: "Inter", "Manrope", "SF Pro Display", "Segoe UI", sans-serif;
+  --pp-font-sans: "Space Grotesk", "Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif;
 }
 
 html,
 body {
-  background: radial-gradient(circle at 10% 0%, #eaf2ff 0%, var(--pp-color-background) 40%);
+  background:
+    radial-gradient(circle at 8% 0%, #d6e8ff 0%, transparent 36%),
+    radial-gradient(circle at 92% 8%, #d5f0ea 0%, transparent 34%),
+    linear-gradient(160deg, #f3f8ff 0%, var(--pp-color-background) 52%, #f6fbff 100%);
   color: var(--pp-color-text);
   font-family: var(--pp-font-sans);
 }
