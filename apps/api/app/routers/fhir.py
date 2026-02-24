@@ -5,7 +5,13 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.deps import get_current_user
-from app.fhir_client import FhirClient, FhirClientError, patient_display_name
+from app.fhir_client import (
+    DEMO_PATIENTS,
+    FhirClient,
+    FhirClientError,
+    demo_patient_by_id,
+    patient_display_name,
+)
 from app.models import User
 from app.schemas import FhirPatientSnapshotResponse, FhirPatientSummaryResponse
 
@@ -30,8 +36,9 @@ def list_patients(
     client = FhirClient()
     try:
         patients = client.list_patients()
-    except FhirClientError as exc:
-        raise HTTPException(status_code=_status_for_error(exc), detail=str(exc)) from exc
+    except FhirClientError:
+        # Demo-safe fallback so production demos still work without live FHIR connectivity.
+        patients = DEMO_PATIENTS
 
     return [
         FhirPatientSummaryResponse(
@@ -58,6 +65,17 @@ def get_patient_snapshot(
     try:
         snapshot = client.get_patient_snapshot(patient_id)
     except FhirClientError as exc:
-        raise HTTPException(status_code=_status_for_error(exc), detail=str(exc)) from exc
+        demo_patient = demo_patient_by_id(patient_id)
+        if demo_patient is None:
+            raise HTTPException(status_code=_status_for_error(exc), detail=str(exc)) from exc
+        snapshot = {
+            "patient": demo_patient,
+            "coverage": [],
+            "conditions": [],
+            "observations": [],
+            "medicationRequests": [],
+            "serviceRequests": [],
+            "documentReferences": [],
+        }
 
     return FhirPatientSnapshotResponse(**snapshot)

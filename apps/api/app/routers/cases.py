@@ -10,7 +10,7 @@ from app.config import get_settings
 from app.document_service import detect_relevant_snippets, extract_text, save_document_bytes
 from app.db import get_db
 from app.deps import get_current_user
-from app.fhir_client import FhirClient, FhirClientError
+from app.fhir_client import FhirClient, FhirClientError, demo_patient_by_id
 from app.model_service import ModelDocument, get_model_service
 from app.models import AuditEvent, Case, CaseAutofill, CaseDocument, CaseQuestionnaire, User
 from app.schemas import (
@@ -316,8 +316,11 @@ def create_case(
     try:
         fhir.get_patient(payload.patient_id)
     except FhirClientError as exc:
-        detail = "Patient not found in FHIR sandbox" if "status=404" in str(exc) else str(exc)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail) from exc
+        if demo_patient_by_id(payload.patient_id) is None and "status=404" in str(exc):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Patient not found in FHIR sandbox",
+            ) from exc
 
     case = Case(
         org_id=current_user.org_id,

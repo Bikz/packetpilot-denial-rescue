@@ -24,6 +24,7 @@ function NewCaseScreen() {
 
   const [patients, setPatients] = useState<FhirPatientSummary[]>([]);
   const [patientId, setPatientId] = useState("");
+  const [useManualPatientId, setUseManualPatientId] = useState(false);
   const [payerLabel, setPayerLabel] = useState("Aetna Gold");
   const serviceLineTemplateId = MRI_LUMBAR_SPINE_TEMPLATE.id;
 
@@ -39,13 +40,18 @@ function NewCaseScreen() {
         const payload = await apiRequest<FhirPatientSummary[]>("/fhir/patients", { auth: true });
         if (!active) return;
 
-        setPatients(payload);
-        if (payload.length > 0) {
-          setPatientId(payload[0].id);
+        const roster = Array.isArray(payload) ? payload : [];
+        setPatients(roster);
+        if (roster.length > 0) {
+          setPatientId(roster[0].id);
+          setUseManualPatientId(false);
+        } else {
+          setUseManualPatientId(true);
         }
       } catch (loadError) {
         if (!active) return;
         setError(loadError instanceof Error ? loadError.message : "Failed to load patients");
+        setUseManualPatientId(true);
       } finally {
         if (active) {
           setLoading(false);
@@ -93,28 +99,46 @@ function NewCaseScreen() {
           <Link href="/queue">
             <Button variant="ghost">Back to queue</Button>
           </Link>
-          <Button form="new-case-form" type="submit" disabled={loading || submitting || !patientId}>
+          <Button form="new-case-form" type="submit" disabled={loading || submitting || !patientId.trim()}>
             {submitting ? "Creating..." : "Create case"}
           </Button>
         </div>
       }
     >
       <form id="new-case-form" className="space-y-4" onSubmit={handleSubmit}>
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <input
+            type="checkbox"
+            checked={useManualPatientId}
+            onChange={(event) => setUseManualPatientId(event.target.checked)}
+          />
+          Enter patient ID manually
+        </label>
+
         <label className="block space-y-1 text-sm font-medium">
           <span>Patient</span>
-          <select
-            value={patientId}
-            onChange={(event) => setPatientId(event.target.value)}
-            disabled={loading || patients.length === 0}
-            className="h-11 w-full rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-white px-3"
-          >
-            {patients.length === 0 ? <option value="">No patients available</option> : null}
-            {patients.map((patient) => (
-              <option key={patient.id} value={patient.id}>
-                {patient.display_name} ({patient.id})
-              </option>
-            ))}
-          </select>
+          {useManualPatientId ? (
+            <input
+              value={patientId}
+              onChange={(event) => setPatientId(event.target.value)}
+              placeholder="demo-001"
+              className="h-11 w-full rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-white px-3"
+            />
+          ) : (
+            <select
+              value={patientId}
+              onChange={(event) => setPatientId(event.target.value)}
+              disabled={loading || patients.length === 0}
+              className="h-11 w-full rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-white px-3"
+            >
+              {patients.length === 0 ? <option value="">No patients available</option> : null}
+              {patients.map((patient) => (
+                <option key={patient.id} value={patient.id}>
+                  {patient.display_name} ({patient.id})
+                </option>
+              ))}
+            </select>
+          )}
         </label>
 
         <label className="block space-y-1 text-sm font-medium">
@@ -137,6 +161,11 @@ function NewCaseScreen() {
         </label>
 
         {loading ? <p className="text-sm text-[var(--pp-color-muted)]">Loading patient roster...</p> : null}
+        {!loading && patients.length === 0 ? (
+          <p className="text-sm text-[var(--pp-color-muted)]">
+            No live FHIR roster available. Use demo IDs like <code>demo-001</code> or <code>demo-002</code>.
+          </p>
+        ) : null}
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
       </form>
     </StepShell>

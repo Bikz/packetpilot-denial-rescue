@@ -11,6 +11,31 @@ class FhirClientError(RuntimeError):
     pass
 
 
+DEMO_PATIENTS: list[dict[str, Any]] = [
+    {
+        "resourceType": "Patient",
+        "id": "demo-001",
+        "name": [{"text": "Ava Thompson"}],
+        "gender": "female",
+        "birthDate": "1986-04-12",
+    },
+    {
+        "resourceType": "Patient",
+        "id": "demo-002",
+        "name": [{"text": "Noah Patel"}],
+        "gender": "male",
+        "birthDate": "1979-09-03",
+    },
+]
+
+
+def demo_patient_by_id(patient_id: str) -> dict[str, Any] | None:
+    for patient in DEMO_PATIENTS:
+        if patient.get("id") == patient_id:
+            return patient
+    return None
+
+
 class FhirClient:
     def __init__(self, base_url: str | None = None, timeout_seconds: float | None = None) -> None:
         settings = get_settings()
@@ -24,12 +49,17 @@ class FhirClient:
         if search:
             params.update(search)
 
-        with httpx.Client(timeout=self.timeout_seconds) as client:
-            response = client.get(
-                f"{self.base_url}/{resource_type}",
-                params=params,
-                headers={"Accept": "application/fhir+json, application/json"},
-            )
+        try:
+            with httpx.Client(timeout=self.timeout_seconds) as client:
+                response = client.get(
+                    f"{self.base_url}/{resource_type}",
+                    params=params,
+                    headers={"Accept": "application/fhir+json, application/json"},
+                )
+        except httpx.RequestError as exc:
+            raise FhirClientError(
+                f"Unable to fetch {resource_type}: transport_error={exc}"
+            ) from exc
 
         if response.status_code != 200:
             raise FhirClientError(
@@ -40,11 +70,16 @@ class FhirClient:
         return [entry.get("resource", {}) for entry in bundle.get("entry", [])]
 
     def _resource_by_id(self, resource_type: str, resource_id: str) -> dict[str, Any]:
-        with httpx.Client(timeout=self.timeout_seconds) as client:
-            response = client.get(
-                f"{self.base_url}/{resource_type}/{resource_id}",
-                headers={"Accept": "application/fhir+json, application/json"},
-            )
+        try:
+            with httpx.Client(timeout=self.timeout_seconds) as client:
+                response = client.get(
+                    f"{self.base_url}/{resource_type}/{resource_id}",
+                    headers={"Accept": "application/fhir+json, application/json"},
+                )
+        except httpx.RequestError as exc:
+            raise FhirClientError(
+                f"Unable to fetch {resource_type}/{resource_id}: transport_error={exc}"
+            ) from exc
 
         if response.status_code != 200:
             raise FhirClientError(
