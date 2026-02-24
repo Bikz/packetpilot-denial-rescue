@@ -83,6 +83,7 @@ type CaseDocumentListItem = {
   case_id: number;
   filename: string;
   content_type: string;
+  document_kind: string;
   text_preview: string;
   snippets: Citation[];
   created_at: string;
@@ -93,6 +94,7 @@ type CaseDocumentDetail = {
   case_id: number;
   filename: string;
   content_type: string;
+  document_kind: string;
   extracted_text: string;
   snippets: Citation[];
   created_at: string;
@@ -101,6 +103,33 @@ type CaseDocumentDetail = {
 type AutofillRun = {
   case_id: number;
   fills: AutofillFieldFill[];
+};
+
+type GapReportItem = {
+  item: string;
+  status: "missing" | "resolved";
+};
+
+type DenialAnalysis = {
+  case_id: number;
+  denial_document_id: number;
+  reasons: string[];
+  missing_items: string[];
+  gap_report: GapReportItem[];
+  reference_id: string | null;
+  deadline_text: string | null;
+  citations: Citation[];
+  appeal_letter_draft: string;
+};
+
+type PacketExportRecord = {
+  export_id: number;
+  case_id: number;
+  export_type: "initial" | "appeal";
+  packet_json: Record<string, unknown>;
+  metrics_json: Record<string, unknown>;
+  pdf_base64: string;
+  created_at: string;
 };
 
 const TABS: Array<{ id: WorkspaceTab; label: string }> = [
@@ -160,6 +189,7 @@ function CaseWorkspaceScreen() {
   const caseId = Number(params.caseId);
   const user = useMemo(() => getSessionUser(), []);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const denialInputRef = useRef<HTMLInputElement | null>(null);
 
   const [selectedTab, setSelectedTab] = useState<WorkspaceTab>("requirements");
   const [caseRecord, setCaseRecord] = useState<CaseRecord | null>(null);
@@ -171,13 +201,17 @@ function CaseWorkspaceScreen() {
   const [selectedDocument, setSelectedDocument] = useState<CaseDocumentDetail | null>(null);
   const [autofill, setAutofill] = useState<AutofillRun>({ case_id: caseId, fills: [] });
   const [openCitationFieldId, setOpenCitationFieldId] = useState<string | null>(null);
+  const [denial, setDenial] = useState<DenialAnalysis | null>(null);
+  const [exports, setExports] = useState<PacketExportRecord[]>([]);
 
   const [attestChecked, setAttestChecked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [attesting, setAttesting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadingDenial, setUploadingDenial] = useState(false);
   const [autofilling, setAutofilling] = useState(false);
+  const [exportingType, setExportingType] = useState<"initial" | "appeal" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -203,14 +237,23 @@ function CaseWorkspaceScreen() {
         if (!active) return;
         setCaseRecord(currentCase);
 
-        const [patientSnapshot, caseQuestionnaire, caseDocuments, caseAutofill] = await Promise.all([
-          apiRequest<FhirPatientSnapshot>(`/fhir/patients/${currentCase.patient_id}/snapshot`, {
-            auth: true,
-          }),
-          apiRequest<CaseQuestionnaire>(`/cases/${caseId}/questionnaire`, { auth: true }),
-          apiRequest<CaseDocumentListItem[]>(`/cases/${caseId}/documents`, { auth: true }),
-          apiRequest<AutofillRun>(`/cases/${caseId}/autofill`, { auth: true }),
-        ]);
+        const [patientSnapshot, caseQuestionnaire, caseDocuments, caseAutofill, caseExports] =
+          await Promise.all([
+            apiRequest<FhirPatientSnapshot>(`/fhir/patients/${currentCase.patient_id}/snapshot`, {
+              auth: true,
+            }),
+            apiRequest<CaseQuestionnaire>(`/cases/${caseId}/questionnaire`, { auth: true }),
+            apiRequest<CaseDocumentListItem[]>(`/cases/${caseId}/documents`, { auth: true }),
+            apiRequest<AutofillRun>(`/cases/${caseId}/autofill`, { auth: true }),
+            apiRequest<PacketExportRecord[]>(`/cases/${caseId}/exports`, { auth: true }),
+          ]);
+
+        let currentDenial: DenialAnalysis | null = null;
+        try {
+          currentDenial = await apiRequest<DenialAnalysis>(`/cases/${caseId}/denial`, { auth: true });
+        } catch {
+          currentDenial = null;
+        }
 
         if (!active) return;
 
@@ -218,6 +261,8 @@ function CaseWorkspaceScreen() {
         setQuestionnaire(caseQuestionnaire);
         setDocuments(caseDocuments);
         setAutofill(caseAutofill);
+        setExports(caseExports);
+        setDenial(currentDenial);
 
         const loadedTemplate = getServiceLineTemplate(currentCase.service_line_template_id);
         if (loadedTemplate) {
@@ -306,6 +351,24 @@ function CaseWorkspaceScreen() {
     }
   }
 
+  async function refreshDenial() {
+    if (!caseRecord) return;
+    try {
+      const latest = await apiRequest<DenialAnalysis>(`/cases/${caseRecord.id}/denial`, { auth: true });
+      setDenial(latest);
+    } catch {
+      setDenial(null);
+    }
+  }
+
+  async function refreshExports() {
+    if (!caseRecord) return;
+    const latest = await apiRequest<PacketExportRecord[]>(`/cases/${caseRecord.id}/exports`, {
+      auth: true,
+    });
+    setExports(latest);
+  }
+
   async function handleSaveAnswers() {
     if (!caseRecord || !template) return;
 
@@ -383,6 +446,88 @@ function CaseWorkspaceScreen() {
       setError(autofillError instanceof Error ? autofillError.message : "Autofill failed");
     } finally {
       setAutofilling(false);
+    }
+  }
+
+  async function handleUploadDenialLetter() {
+    if (!caseRecord) return;
+    const file = denialInputRef.current?.files?.[0];
+    if (!file) return;
+
+    setUploadingDenial(true);
+    setError(null);
+
+    try {
+      const form = new FormData();
+      form.append("file", file);
+
+      const payload = await apiRequest<DenialAnalysis>(`/cases/${caseRecord.id}/denial/upload`, {
+        method: "POST",
+        auth: true,
+        body: form,
+      });
+      setDenial(payload);
+      await refreshDenial();
+      await refreshDocuments();
+      setSelectedDocId(payload.denial_document_id);
+      setToast("Denial letter parsed and gap report generated.");
+      setTimeout(() => setToast(null), 2600);
+      if (denialInputRef.current) {
+        denialInputRef.current.value = "";
+      }
+    } catch (denialError) {
+      setError(denialError instanceof Error ? denialError.message : "Failed to parse denial letter");
+    } finally {
+      setUploadingDenial(false);
+    }
+  }
+
+  function downloadText(filename: string, content: string, mimeType: string) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadBase64(filename: string, base64Content: string, mimeType: string) {
+    const binary = window.atob(base64Content);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    const blob = new Blob([bytes], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleGenerateExport(exportType: "initial" | "appeal") {
+    if (!caseRecord) return;
+
+    setExportingType(exportType);
+    setError(null);
+
+    try {
+      const payload = await apiRequest<PacketExportRecord>(`/cases/${caseRecord.id}/exports/generate`, {
+        method: "POST",
+        auth: true,
+        body: { export_type: exportType },
+      });
+
+      setExports((current) => [payload, ...current.filter((item) => item.export_id !== payload.export_id)]);
+      setToast(exportType === "appeal" ? "Appeal packet generated" : "Packet generated");
+      setTimeout(() => setToast(null), 2400);
+      await refreshExports();
+    } catch (exportError) {
+      setError(exportError instanceof Error ? exportError.message : "Failed to generate export");
+    } finally {
+      setExportingType(null);
     }
   }
 
@@ -609,6 +754,9 @@ function CaseWorkspaceScreen() {
                     }
                   >
                     <p className="text-sm font-semibold">{document.filename}</p>
+                    <p className="text-xs text-[var(--pp-color-muted)] capitalize">
+                      {document.document_kind.replace("_", " ")}
+                    </p>
                     <p className="text-xs text-[var(--pp-color-muted)]">{document.text_preview || "No preview"}</p>
                   </button>
                 ))
@@ -653,6 +801,58 @@ function CaseWorkspaceScreen() {
               )}
             </div>
           </div>
+
+          <div className="rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] p-3">
+            <p className="text-sm font-semibold">Upload denial letter (Fix-forward / appeal)</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <input ref={denialInputRef} type="file" accept=".txt,.md,.pdf,.png,.jpg,.jpeg" />
+              <Button onClick={handleUploadDenialLetter} disabled={uploadingDenial}>
+                {uploadingDenial ? "Parsing..." : "Upload denial letter"}
+              </Button>
+            </div>
+            <p className="mt-2 text-xs text-[var(--pp-color-muted)]">
+              Parses denial reasons and missing items to generate a gap report + appeal draft.
+            </p>
+          </div>
+
+          {denial ? (
+            <div className="space-y-3 rounded-[var(--pp-radius-md)] border border-amber-300 bg-amber-50 p-3">
+              <h3 className="text-sm font-semibold">Gap report</h3>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--pp-color-muted)]">
+                    Reasons
+                  </p>
+                  {denial.reasons.map((reason) => (
+                    <p key={reason} className="rounded bg-white px-2 py-1 text-xs">
+                      {reason}
+                    </p>
+                  ))}
+                </div>
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--pp-color-muted)]">
+                    Missing items
+                  </p>
+                  {denial.gap_report.map((item) => (
+                    <p key={item.item} className="rounded bg-white px-2 py-1 text-xs">
+                      {item.item} ({item.status})
+                    </p>
+                  ))}
+                </div>
+              </div>
+              <p className="text-xs text-[var(--pp-color-muted)]">
+                Ref: {denial.reference_id ?? "N/A"} · Deadline: {denial.deadline_text ?? "N/A"}
+              </p>
+              <div className="rounded border border-[var(--pp-color-border)] bg-white p-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--pp-color-muted)]">
+                  Appeal draft
+                </p>
+                <p className="mt-1 text-xs leading-relaxed whitespace-pre-wrap">
+                  {denial.appeal_letter_draft}
+                </p>
+              </div>
+            </div>
+          ) : null}
         </Card>
       ) : null}
 
@@ -808,14 +1008,97 @@ function CaseWorkspaceScreen() {
         <Card className="space-y-3">
           <h2 className="text-base font-semibold">Export</h2>
           <p className="text-sm text-[var(--pp-color-muted)]">
-            Export remains locked until clinician attestation is completed.
+            Generate deterministic packet artifacts: PDF, packet JSON, and metrics.json.
           </p>
-          <Button disabled={!questionnaire?.export_enabled}>Export packet</Button>
+
+          <div className="rounded-[var(--pp-radius-md)] border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Model output is a draft; verify before submission.
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              onClick={() => void handleGenerateExport("initial")}
+              disabled={!questionnaire?.export_enabled || exportingType !== null}
+            >
+              {exportingType === "initial" ? "Generating packet..." : "Generate packet export"}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => void handleGenerateExport("appeal")}
+              disabled={!questionnaire?.export_enabled || !denial || exportingType !== null}
+            >
+              {exportingType === "appeal" ? "Generating appeal..." : "Generate appeal packet"}
+            </Button>
+          </div>
+
           {!questionnaire?.export_enabled ? (
             <p className="text-xs text-amber-700">Clinician attestation is required before export.</p>
-          ) : (
-            <p className="text-xs text-emerald-700">Ready for export in Epic 6.</p>
-          )}
+          ) : null}
+          {questionnaire?.export_enabled && !denial ? (
+            <p className="text-xs text-[var(--pp-color-muted)]">
+              Appeal export unlocks after uploading a denial letter in Evidence.
+            </p>
+          ) : null}
+
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold">Generated exports</h3>
+            {exports.length === 0 ? (
+              <p className="text-sm text-[var(--pp-color-muted)]">No exports generated yet.</p>
+            ) : (
+              exports.map((item) => (
+                <div
+                  key={item.export_id}
+                  className="space-y-2 rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-[var(--pp-color-surface)] p-3"
+                >
+                  <p className="text-sm font-semibold">
+                    #{item.export_id} · {item.export_type === "appeal" ? "Appeal packet" : "Initial packet"}
+                  </p>
+                  <p className="text-xs text-[var(--pp-color-muted)]">
+                    {new Date(item.created_at).toLocaleString()} · Completeness:{" "}
+                    {String(item.metrics_json?.completeness_score ?? "N/A")}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="ghost"
+                      onClick={() =>
+                        downloadBase64(
+                          `case-${item.case_id}-${item.export_type}-${item.export_id}.pdf`,
+                          item.pdf_base64,
+                          "application/pdf",
+                        )
+                      }
+                    >
+                      Download PDF
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() =>
+                        downloadText(
+                          `case-${item.case_id}-${item.export_type}-${item.export_id}.packet.json`,
+                          JSON.stringify(item.packet_json, null, 2),
+                          "application/json",
+                        )
+                      }
+                    >
+                      Download packet.json
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() =>
+                        downloadText(
+                          `case-${item.case_id}-${item.export_type}-${item.export_id}.metrics.json`,
+                          JSON.stringify(item.metrics_json, null, 2),
+                          "application/json",
+                        )
+                      }
+                    >
+                      Download metrics.json
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </Card>
       ) : null}
 

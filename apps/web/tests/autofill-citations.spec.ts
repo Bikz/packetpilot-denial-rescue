@@ -60,13 +60,14 @@ test("upload evidence, autofill fields, and inspect citation drawer", async ({ p
 
   await page
     .locator('input[type="file"]')
+    .first()
     .setInputFiles({
       name: "evidence-note.txt",
       mimeType: "text/plain",
       buffer: Buffer.from(evidenceText, "utf-8"),
     });
 
-  await page.getByRole("button", { name: "Upload" }).click();
+  await page.getByRole("button", { name: "Upload", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("Document uploaded");
 
   await page.getByRole("button", { name: "Form" }).click();
