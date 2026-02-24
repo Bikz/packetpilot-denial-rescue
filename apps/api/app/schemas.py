@@ -161,3 +161,44 @@ class CaseQuestionnaireResponse(BaseModel):
     attested_at: datetime | None = None
     attested_by_email: str | None = None
     export_enabled: bool
+
+
+class CitationResponse(BaseModel):
+    doc_id: int
+    page: int
+    start: int
+    end: int
+    excerpt: str
+
+
+class AutofillFieldFillResponse(BaseModel):
+    field_id: str
+    value: str
+    confidence: float
+    status: Literal["autofilled", "suggested", "missing"]
+    citations: list[CitationResponse]
+
+
+class AutofillRunResponse(BaseModel):
+    case_id: int
+    fills: list[AutofillFieldFillResponse]
+
+
+class CaseDocumentResponse(BaseModel):
+    id: int
+    case_id: int
+    filename: str
+    content_type: str
+    extracted_text: str
+    snippets: list[CitationResponse]
+    created_at: datetime
+
+
+class CaseDocumentListItemResponse(BaseModel):
+    id: int
+    case_id: int
+    filename: str
+    content_type: str
+    text_preview: str
+    snippets: list[CitationResponse]
+    created_at: datetime

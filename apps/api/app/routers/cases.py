@@ -2,19 +2,26 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
+from app.document_service import detect_relevant_snippets, extract_text, save_document_bytes
 from app.db import get_db
 from app.deps import get_current_user
 from app.fhir_client import FhirClient, FhirClientError
-from app.models import AuditEvent, Case, CaseQuestionnaire, User
+from app.model_service import ModelDocument, get_model_service
+from app.models import AuditEvent, Case, CaseAutofill, CaseDocument, CaseQuestionnaire, User
 from app.schemas import (
+    AutofillFieldFillResponse,
+    AutofillRunResponse,
     CaseCreateRequest,
+    CaseDocumentListItemResponse,
+    CaseDocumentResponse,
     CaseQuestionnaireResponse,
     CaseQuestionnaireUpdateRequest,
     CaseResponse,
     CaseStatusUpdateRequest,
+    CitationResponse,
     EvidenceChecklistItemResponse,
     QuestionnaireAnswerResponse,
     QuestionnaireItemResponse,
@@ -170,6 +177,80 @@ def _questionnaire_response(
         attested_at=questionnaire.clinician_attested_at,
         attested_by_email=attested_by_email,
         export_enabled=questionnaire.clinician_attested_at is not None,
+    )
+
+
+def _citation_from_dict(citation: dict) -> CitationResponse:
+    return CitationResponse(
+        doc_id=int(citation.get("doc_id", 0)),
+        page=int(citation.get("page", 1)),
+        start=int(citation.get("start", 0)),
+        end=int(citation.get("end", 0)),
+        excerpt=str(citation.get("excerpt", "")),
+    )
+
+
+def _document_response(document: CaseDocument) -> CaseDocumentResponse:
+    snippets = [_citation_from_dict(item) for item in (document.snippets_json or [])]
+    snippets = [
+        CitationResponse(
+            doc_id=document.id,
+            page=item.page,
+            start=item.start,
+            end=item.end,
+            excerpt=item.excerpt,
+        )
+        for item in snippets
+    ]
+    return CaseDocumentResponse(
+        id=document.id,
+        case_id=document.case_id,
+        filename=document.filename,
+        content_type=document.content_type,
+        extracted_text=document.extracted_text,
+        snippets=snippets,
+        created_at=document.created_at,
+    )
+
+
+def _document_list_item(document: CaseDocument) -> CaseDocumentListItemResponse:
+    snippets = [_citation_from_dict(item) for item in (document.snippets_json or [])]
+    snippets = [
+        CitationResponse(
+            doc_id=document.id,
+            page=item.page,
+            start=item.start,
+            end=item.end,
+            excerpt=item.excerpt,
+        )
+        for item in snippets
+    ]
+    text_preview = document.extracted_text.replace("\n", " ").strip()[:200]
+    return CaseDocumentListItemResponse(
+        id=document.id,
+        case_id=document.case_id,
+        filename=document.filename,
+        content_type=document.content_type,
+        text_preview=text_preview,
+        snippets=snippets,
+        created_at=document.created_at,
+    )
+
+
+def _autofill_response(case_id: int, fills: list[CaseAutofill]) -> AutofillRunResponse:
+    sorted_fills = sorted(fills, key=lambda item: item.field_id)
+    return AutofillRunResponse(
+        case_id=case_id,
+        fills=[
+            AutofillFieldFillResponse(
+                field_id=fill.field_id,
+                value=fill.value,
+                confidence=fill.confidence,
+                status=fill.status,  # type: ignore[arg-type]
+                citations=[_citation_from_dict(citation) for citation in fill.citations_json],
+            )
+            for fill in sorted_fills
+        ],
     )
 
 
@@ -384,3 +465,225 @@ def attest_case_questionnaire(
     db.refresh(questionnaire)
 
     return _questionnaire_response(db, case, questionnaire, template)
+
+
+@router.get("/{case_id}/documents", response_model=list[CaseDocumentListItemResponse])
+def list_case_documents(
+    case_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[CaseDocumentListItemResponse]:
+    _get_case_or_404(db, case_id, current_user.org_id)
+    documents = (
+        db.query(CaseDocument)
+        .filter(CaseDocument.case_id == case_id, CaseDocument.org_id == current_user.org_id)
+        .order_by(CaseDocument.created_at.desc(), CaseDocument.id.desc())
+        .all()
+    )
+    return [_document_list_item(document) for document in documents]
+
+
+@router.get("/{case_id}/documents/{doc_id}", response_model=CaseDocumentResponse)
+def get_case_document(
+    case_id: int,
+    doc_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> CaseDocumentResponse:
+    _get_case_or_404(db, case_id, current_user.org_id)
+    document = (
+        db.query(CaseDocument)
+        .filter(
+            CaseDocument.id == doc_id,
+            CaseDocument.case_id == case_id,
+            CaseDocument.org_id == current_user.org_id,
+        )
+        .first()
+    )
+    if document is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+
+    return _document_response(document)
+
+
+@router.post("/{case_id}/documents/upload", response_model=CaseDocumentResponse)
+async def upload_case_document(
+    case_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> CaseDocumentResponse:
+    _get_case_or_404(db, case_id, current_user.org_id)
+
+    content = await file.read()
+    filename = file.filename or "uploaded-document"
+    content_type = file.content_type or "application/octet-stream"
+
+    storage_path = save_document_bytes(case_id, filename, content)
+    extracted_text = extract_text(content_type, filename, content)
+    snippets = detect_relevant_snippets(extracted_text)
+
+    document = CaseDocument(
+        case_id=case_id,
+        org_id=current_user.org_id,
+        filename=filename,
+        content_type=content_type,
+        storage_path=storage_path,
+        extracted_text=extracted_text,
+        snippets_json=snippets,
+        created_by_user_id=current_user.id,
+    )
+    db.add(document)
+    db.flush()
+
+    document.snippets_json = [
+        {
+            "doc_id": document.id,
+            "page": int(item.get("page", 1)),
+            "start": int(item.get("start", 0)),
+            "end": int(item.get("end", 0)),
+            "excerpt": str(item.get("excerpt", "")),
+        }
+        for item in snippets
+    ]
+
+    db.add(
+        AuditEvent(
+            org_id=current_user.org_id,
+            user_id=current_user.id,
+            action="document_upload",
+            entity_type="case_document",
+            entity_id=str(document.id),
+            metadata_json={"case_id": case_id, "filename": filename, "content_type": content_type},
+        )
+    )
+
+    db.commit()
+    db.refresh(document)
+
+    return _document_response(document)
+
+
+@router.get("/{case_id}/autofill", response_model=AutofillRunResponse)
+def get_case_autofill(
+    case_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> AutofillRunResponse:
+    _get_case_or_404(db, case_id, current_user.org_id)
+    fills = (
+        db.query(CaseAutofill)
+        .filter(CaseAutofill.case_id == case_id, CaseAutofill.org_id == current_user.org_id)
+        .order_by(CaseAutofill.field_id.asc())
+        .all()
+    )
+    return _autofill_response(case_id, fills)
+
+
+@router.post("/{case_id}/autofill", response_model=AutofillRunResponse)
+def run_case_autofill(
+    case_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> AutofillRunResponse:
+    case = _get_case_or_404(db, case_id, current_user.org_id)
+    template = _get_template_or_400(case.service_line_template_id)
+    questionnaire = _get_or_create_case_questionnaire(db, case, template, current_user)
+
+    documents = (
+        db.query(CaseDocument)
+        .filter(CaseDocument.case_id == case_id, CaseDocument.org_id == current_user.org_id)
+        .order_by(CaseDocument.created_at.asc(), CaseDocument.id.asc())
+        .all()
+    )
+    if not documents:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Upload at least one document before running autofill",
+        )
+
+    model_documents = [
+        ModelDocument(id=document.id, text=document.extracted_text) for document in documents
+    ]
+    fills = get_model_service().extract_field_fills(model_documents)
+
+    (
+        db.query(CaseAutofill)
+        .filter(CaseAutofill.case_id == case_id, CaseAutofill.org_id == current_user.org_id)
+        .delete()
+    )
+
+    saved_fills: list[CaseAutofill] = []
+    merged_answers = _normalize_answers(template, questionnaire.answers_json)
+
+    for fill in fills:
+        citation_payload = [
+            {
+                "doc_id": citation.doc_id,
+                "page": citation.page,
+                "start": citation.start,
+                "end": citation.end,
+                "excerpt": citation.excerpt,
+            }
+            for citation in fill.citations
+        ]
+        source_doc_ids = sorted({item["doc_id"] for item in citation_payload if item["doc_id"]})
+
+        record = CaseAutofill(
+            case_id=case_id,
+            org_id=current_user.org_id,
+            field_id=fill.field_id,
+            value=fill.value,
+            confidence=fill.confidence,
+            status=fill.status,
+            citations_json=citation_payload,
+            source_doc_ids_json=source_doc_ids,
+        )
+        db.add(record)
+        saved_fills.append(record)
+
+        if fill.status != "missing":
+            merged_answers[fill.field_id] = {
+                "value": fill.value,
+                "state": "verified" if fill.status == "autofilled" else "filled",
+                "note": "Model draft suggestion. Verify before submission.",
+            }
+
+    validation_errors = validate_answers(template, merged_answers)
+    if validation_errors:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="; ".join(validation_errors),
+        )
+
+    questionnaire.answers_json = merged_answers
+    questionnaire.updated_by_user_id = current_user.id
+    questionnaire.updated_at = datetime.now(timezone.utc)
+    questionnaire.clinician_attested_by_user_id = None
+    questionnaire.clinician_attested_at = None
+
+    db.add(
+        AuditEvent(
+            org_id=current_user.org_id,
+            user_id=current_user.id,
+            action="autofill_run",
+            entity_type="case",
+            entity_id=str(case.id),
+            metadata_json={
+                "case_id": case.id,
+                "num_documents": len(documents),
+                "num_fields": len(saved_fills),
+            },
+        )
+    )
+
+    db.commit()
+
+    persisted = (
+        db.query(CaseAutofill)
+        .filter(CaseAutofill.case_id == case_id, CaseAutofill.org_id == current_user.org_id)
+        .order_by(CaseAutofill.field_id.asc())
+        .all()
+    )
+
+    return _autofill_response(case_id, persisted)

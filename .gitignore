@@ -12,6 +12,7 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 apps/api/data/*.db
+apps/api/data/uploads/
 
 # Playwright
 playwright-report/

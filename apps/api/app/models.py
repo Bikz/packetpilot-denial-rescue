@@ -108,3 +108,37 @@ class CaseQuestionnaire(Base):
     clinician_attested_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
+
+class CaseDocument(Base):
+    __tablename__ = "case_documents"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    case_id: Mapped[int] = mapped_column(ForeignKey("cases.id"), nullable=False, index=True)
+    org_id: Mapped[int] = mapped_column(ForeignKey("orgs.id"), nullable=False, index=True)
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(128), nullable=False)
+    storage_path: Mapped[str] = mapped_column(String(1024), nullable=False)
+    extracted_text: Mapped[str] = mapped_column(Text, nullable=False)
+    snippets_json: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
+    created_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class CaseAutofill(Base):
+    __tablename__ = "case_autofills"
+    __table_args__ = (UniqueConstraint("case_id", "field_id", name="uq_case_autofills_case_field"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    case_id: Mapped[int] = mapped_column(ForeignKey("cases.id"), nullable=False, index=True)
+    org_id: Mapped[int] = mapped_column(ForeignKey("orgs.id"), nullable=False, index=True)
+    field_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+    confidence: Mapped[float] = mapped_column(nullable=False, default=0.0)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="suggested")
+    citations_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
+    source_doc_ids_json: Mapped[list[int] | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
