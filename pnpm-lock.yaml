@@ -69,6 +69,12 @@ importers:
         specifier: ^5
         version: 5.9.3
 
+  packages/eval:
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
   packages/fhir:
     devDependencies:
       typescript:
