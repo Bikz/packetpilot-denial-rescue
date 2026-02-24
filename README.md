@@ -25,7 +25,7 @@ docker compose up --build
 This brings up:
 - web (`3000`)
 - api (`8000`)
-- HAPI FHIR sandbox (`8080`)
+- HAPI FHIR sandbox (`8080`, configurable via `FHIR_PORT`)
 - automatic synthetic FHIR seed import (`fhir-seed`)
 
 ## Epic 6 demo run (under 5 minutes)
@@ -38,6 +38,12 @@ chmod +x infra/scripts/demo_epic6.sh
 This script boots the stack, creates demo users/case, runs autofill, uploads a denial letter,
 generates initial + appeal packet exports, and writes `packet.json`, `metrics.json`, and `packet.pdf`
 under `apps/api/data/demo-artifacts/`.
+If port `8080` is occupied, the script auto-selects an open FHIR host port (for example `18080`).
+You can also force one explicitly:
+
+```bash
+FHIR_PORT=18080 ./infra/scripts/demo_epic6.sh
+```
 
 ## Quality gates
 

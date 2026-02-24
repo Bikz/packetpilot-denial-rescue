@@ -2,7 +2,7 @@ services:
   fhir:
     image: hapiproject/hapi:latest
     ports:
-      - "8080:8080"
+      - "${FHIR_PORT:-8080}:8080"
 
   fhir-seed:
     image: curlimages/curl:8.11.1
