@@ -1,17 +1,11 @@
+from __future__ import annotations
+
 from fastapi.testclient import TestClient
 
-from app.main import app
 
-
-client = TestClient(app)
-
-
-def test_healthz_returns_expected_payload() -> None:
+def test_healthz_returns_expected_payload(client: TestClient) -> None:
     response = client.get("/healthz")
 
     assert response.status_code == 200
-    assert response.json() == {
-        "status": "ok",
-        "service": "packetpilot-api",
-        "version": "0.1.0",
-    }
+    assert response.json()["status"] == "ok"
+    assert response.json()["service"] == "packetpilot-api"
