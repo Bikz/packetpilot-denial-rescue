@@ -118,6 +118,7 @@ class CaseDocument(Base):
     org_id: Mapped[int] = mapped_column(ForeignKey("orgs.id"), nullable=False, index=True)
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     content_type: Mapped[str] = mapped_column(String(128), nullable=False)
+    document_kind: Mapped[str] = mapped_column(String(64), nullable=False, default="evidence")
     storage_path: Mapped[str] = mapped_column(String(1024), nullable=False)
     extracted_text: Mapped[str] = mapped_column(Text, nullable=False)
     snippets_json: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
@@ -142,3 +143,40 @@ class CaseAutofill(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now
     )
+
+
+class CaseDenial(Base):
+    __tablename__ = "case_denials"
+    __table_args__ = (UniqueConstraint("case_id", name="uq_case_denials_case_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    case_id: Mapped[int] = mapped_column(ForeignKey("cases.id"), nullable=False, index=True)
+    org_id: Mapped[int] = mapped_column(ForeignKey("orgs.id"), nullable=False, index=True)
+    denial_document_id: Mapped[int | None] = mapped_column(
+        ForeignKey("case_documents.id"), nullable=True, index=True
+    )
+    raw_text: Mapped[str] = mapped_column(Text, nullable=False)
+    reasons_json: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    missing_items_json: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    reference_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    deadline_text: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    citations_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
+    appeal_letter_draft: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    updated_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+
+
+class CaseExport(Base):
+    __tablename__ = "case_exports"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    case_id: Mapped[int] = mapped_column(ForeignKey("cases.id"), nullable=False, index=True)
+    org_id: Mapped[int] = mapped_column(ForeignKey("orgs.id"), nullable=False, index=True)
+    export_type: Mapped[str] = mapped_column(String(32), nullable=False, default="initial")
+    packet_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    metrics_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    pdf_base64: Mapped[str] = mapped_column(Text, nullable=False)
+    created_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

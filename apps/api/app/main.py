@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.db import init_db
-from app.routers import audit, auth, cases, fhir, settings
+from app.routers import audit, auth, cases, denial, exports, fhir, settings
 
 app = FastAPI(title="PacketPilot API", version="0.2.0")
 
@@ -39,3 +39,5 @@ app.include_router(settings.router)
 app.include_router(audit.router)
 app.include_router(fhir.router)
 app.include_router(cases.router)
+app.include_router(denial.router)
+app.include_router(exports.router)

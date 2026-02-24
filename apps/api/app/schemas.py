@@ -189,6 +189,7 @@ class CaseDocumentResponse(BaseModel):
     case_id: int
     filename: str
     content_type: str
+    document_kind: str
     extracted_text: str
     snippets: list[CitationResponse]
     created_at: datetime
@@ -199,6 +200,46 @@ class CaseDocumentListItemResponse(BaseModel):
     case_id: int
     filename: str
     content_type: str
+    document_kind: str
     text_preview: str
     snippets: list[CitationResponse]
+    created_at: datetime
+
+
+class GapReportItemResponse(BaseModel):
+    item: str
+    status: Literal["missing", "resolved"]
+
+
+class DenialAnalysisResponse(BaseModel):
+    case_id: int
+    denial_document_id: int
+    reasons: list[str]
+    missing_items: list[str]
+    gap_report: list[GapReportItemResponse]
+    reference_id: str | None = None
+    deadline_text: str | None = None
+    citations: list[CitationResponse]
+    appeal_letter_draft: str
+
+
+class PacketExportRequest(BaseModel):
+    export_type: Literal["initial", "appeal"] = "initial"
+
+
+class AuditSummaryItemResponse(BaseModel):
+    id: int
+    action: str
+    entity_type: str
+    actor_email: str | None = None
+    created_at: datetime
+
+
+class PacketExportResponse(BaseModel):
+    export_id: int
+    case_id: int
+    export_type: Literal["initial", "appeal"]
+    packet_json: dict[str, Any]
+    metrics_json: dict[str, Any]
+    pdf_base64: str
     created_at: datetime
