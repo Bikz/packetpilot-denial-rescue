@@ -22,13 +22,13 @@ export default function ModelPage() {
       <div className="space-y-3">
         <Card className="space-y-1 border-[var(--pp-color-primary)] bg-[var(--pp-color-primary-foreground)]">
           <h2 className="text-sm font-semibold">Run locally on this machine</h2>
-          <p className="text-sm text-[var(--pp-color-muted)]">
+          <p className="text-sm text-[var(--pp-color-text)]">
             Best for privacy-first demos and edge hardware workflows.
           </p>
         </Card>
         <Card className="space-y-1">
           <h2 className="text-sm font-semibold">Run in clinic VPC</h2>
-          <p className="text-sm text-[var(--pp-color-muted)]">
+          <p className="text-sm text-[var(--pp-color-text)]">
             Keep model service inside private network boundaries.
           </p>
         </Card>

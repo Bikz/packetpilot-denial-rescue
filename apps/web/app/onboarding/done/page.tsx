@@ -24,7 +24,7 @@ export default function DonePage() {
         </div>
       }
     >
-      <p className="text-sm leading-relaxed text-[var(--pp-color-muted)]">
+      <p className="text-sm leading-relaxed text-[var(--pp-color-text)]">
         You can now sign in, create a case, and continue setup in settings.
       </p>
     </StepShell>

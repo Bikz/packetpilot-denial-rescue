@@ -746,7 +746,7 @@ function CaseWorkspaceScreen() {
               onClick={() => setSelectedTab(tab.id)}
               className={
                 selectedTab === tab.id
-                  ? "rounded-[var(--pp-radius-md)] border border-[var(--pp-color-ring)] bg-gradient-to-b from-white to-[#f3f8ff] px-3 py-2 text-left text-sm font-semibold text-[#0a3f7d]"
+                  ? "rounded-[var(--pp-radius-md)] border border-[var(--pp-color-ring)] bg-[var(--pp-color-surface-strong)] px-3 py-2 text-left text-sm font-semibold text-[var(--pp-color-text)]"
                   : "rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-[var(--pp-color-surface)] px-3 py-2 text-left text-sm text-[var(--pp-color-muted)] hover:text-[var(--pp-color-text)]"
               }
             >

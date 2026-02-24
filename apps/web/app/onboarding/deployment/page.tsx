@@ -22,13 +22,13 @@ export default function DeploymentPage() {
       <div className="space-y-3">
         <Card className="space-y-1 border-[var(--pp-color-primary)] bg-[var(--pp-color-primary-foreground)]">
           <h2 className="text-sm font-semibold">Standalone (recommended)</h2>
-          <p className="text-sm text-[var(--pp-color-muted)]">
+          <p className="text-sm text-[var(--pp-color-text)]">
             Manual uploads or local FHIR bundle import for quick setup.
           </p>
         </Card>
         <Card className="space-y-1">
           <h2 className="text-sm font-semibold">SMART-on-FHIR</h2>
-          <p className="text-sm text-[var(--pp-color-muted)]">
+          <p className="text-sm text-[var(--pp-color-text)]">
             EHR launch context and OAuth wiring for integrated flows.
           </p>
         </Card>

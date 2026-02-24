@@ -42,7 +42,7 @@ export default function WelcomePage() {
         >
           <p className="pp-kicker">Clinical prior-authorization assistant</p>
           <h2 className="pp-card-title">Built for coordinator workflows and clinician review</h2>
-          <p className="pp-body-sm text-[var(--pp-color-muted)]">
+          <p className="pp-body-sm text-[var(--pp-color-text)]">
             PacketPilot keeps sensitive cases local-first by default, gives coordinators AI-assisted drafting, and
             requires explicit review checkpoints before anything is submitted.
           </p>
@@ -50,14 +50,14 @@ export default function WelcomePage() {
             {onboardingSteps.map((step, index) => (
               <div
                 key={step.title}
-                className="flex items-start gap-3 rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-white/80 p-3"
+                className="flex items-start gap-3 rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-[var(--pp-color-card)] p-3"
               >
                 <p className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--pp-color-primary)] px-2 text-xs font-bold text-white">
                   {index + 1}
                 </p>
                 <div>
                   <p className="text-sm font-semibold">{step.title}</p>
-                  <p className="pp-body-sm text-[var(--pp-color-muted)]">{step.description}</p>
+                  <p className="pp-body-sm text-[var(--pp-color-text)]">{step.description}</p>
                 </div>
               </div>
             ))}
@@ -70,10 +70,10 @@ export default function WelcomePage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2, delay: 0.06 }}
         >
-          <div className="rounded-[var(--pp-radius-lg)] border border-[var(--pp-color-border)] bg-white/85 p-4 sm:p-5 shadow-[var(--pp-shadow-md)]">
-            <p className="pp-caption text-[var(--pp-color-muted)]">Get started</p>
+          <div className="rounded-[var(--pp-radius-lg)] border border-[var(--pp-color-border)] bg-[var(--pp-color-surface)] p-4 sm:p-5">
+            <p className="pp-caption text-[var(--pp-color-text)]">Get started</p>
             <h2 className="pp-card-title mt-1">Set up in one flow</h2>
-            <p className="pp-body-sm text-[var(--pp-color-muted)]">
+            <p className="pp-body-sm text-[var(--pp-color-text)]">
               Complete onboarding, create your first queue case, and validate your first draft workflow in a few minutes.
             </p>
             <div className="mt-4 flex flex-col gap-3">
@@ -81,7 +81,7 @@ export default function WelcomePage() {
                 <Button className="w-full">Start setup</Button>
               </Link>
               <div className="flex items-center justify-between gap-2">
-                <p className="pp-caption text-[var(--pp-color-muted)]">Already set up?</p>
+                <p className="pp-caption text-[var(--pp-color-text)]">Already set up?</p>
                 <InstallPrompt />
               </div>
             </div>

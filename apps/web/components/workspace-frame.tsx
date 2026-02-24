@@ -52,7 +52,7 @@ export function WorkspaceFrame({ user, caseStatus, quickActions, children }: Wor
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-2 rounded-[var(--pp-radius-lg)] border border-[var(--pp-color-border)] bg-white/85 p-4 sm:p-5">
+      <div className="grid gap-2 rounded-[var(--pp-radius-lg)] bg-[var(--pp-color-surface)] p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--pp-color-muted)]">Workspace</p>

@@ -67,7 +67,7 @@ export default function OnboardingAdminPage() {
         title="Checking bootstrap status"
         description="Preparing admin setup form..."
       >
-        <p className="text-sm text-[var(--pp-color-muted)]">Please wait.</p>
+        <p className="text-sm text-[var(--pp-color-text)]">Please wait.</p>
       </StepShell>
     );
   }
@@ -89,7 +89,7 @@ export default function OnboardingAdminPage() {
           </div>
         }
       >
-        <p className="text-sm text-[var(--pp-color-muted)]">
+        <p className="text-sm text-[var(--pp-color-text)]">
           Continue by signing in with your existing clinic admin account.
         </p>
       </StepShell>

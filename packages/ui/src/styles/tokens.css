@@ -1,23 +1,23 @@
 :root {
-  --pp-color-background: #eef4fb;
+  --pp-color-background: #f4f8fd;
   --pp-color-card: #ffffff;
-  --pp-color-surface: rgba(255, 255, 255, 0.6);
-  --pp-color-surface-strong: rgba(255, 255, 255, 0.85);
-  --pp-color-border: rgba(15, 34, 56, 0.08);
-  --pp-color-text: #1a273b;
-  --pp-color-muted: #5e6f85;
-  --pp-color-primary: #0f6ad8;
+  --pp-color-surface: #eff4fb;
+  --pp-color-surface-strong: #e5edf7;
+  --pp-color-border: #d5dfed;
+  --pp-color-text: #112033;
+  --pp-color-muted: #334155;
+  --pp-color-primary: #2467d6;
   --pp-color-primary-foreground: #ffffff;
-  --pp-color-ring: #2f83ef;
-  --pp-color-accent: #0ea5a3;
+  --pp-color-ring: #2f6fd9;
+  --pp-color-accent: #2b7ddc;
   --pp-color-warning: #d97706;
   --pp-font-sans: "Manrope", "Inter", "Avenir Next", "Segoe UI", sans-serif;
 
   --pp-radius-md: 14px;
   --pp-radius-lg: 24px;
   --pp-shadow-sm: 0 4px 12px rgba(15, 34, 56, 0.04);
-  --pp-shadow-md: 0 12px 32px rgba(15, 34, 56, 0.08);
-  --pp-shadow-lg: 0 24px 48px rgba(15, 34, 56, 0.12);
+  --pp-shadow-md: 0 8px 20px rgba(17, 41, 68, 0.08);
+  --pp-shadow-lg: 0 18px 40px rgba(17, 41, 68, 0.1);
 
   --pp-space-1: 0.25rem;
   --pp-space-2: 0.5rem;
@@ -30,14 +30,4 @@
   --pp-font-body: "Manrope", "Inter", "Avenir Next", "Segoe UI", sans-serif;
   --pp-color-danger: #c81e1e;
   --pp-color-success: #0f766e;
-}
-
-html,
-body {
-  background:
-    radial-gradient(circle at 10% 0%, rgba(15, 106, 216, 0.08) 0%, transparent 40%),
-    radial-gradient(circle at 90% 10%, rgba(14, 165, 163, 0.06) 0%, transparent 40%),
-    linear-gradient(160deg, #f3f8ff 0%, var(--pp-color-background) 60%, #e8f0fb 100%);
-  color: var(--pp-color-text);
-  font-family: var(--pp-font-sans);
 }
