@@ -18,6 +18,7 @@ This starts:
 ## Container startup
 
 ```bash
+export APP_SECRET="$(openssl rand -hex 32)"
 docker compose up --build
 ```
 
