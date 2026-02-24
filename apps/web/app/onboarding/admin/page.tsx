@@ -119,7 +119,7 @@ export default function OnboardingAdminPage() {
             value={organizationName}
             onChange={(event) => setOrganizationName(event.target.value)}
             required
-            className="h-11 w-full rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-white px-3"
+            className="h-11 w-full rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-[var(--pp-color-background)] px-3"
           />
         </label>
 
@@ -129,7 +129,7 @@ export default function OnboardingAdminPage() {
             value={fullName}
             onChange={(event) => setFullName(event.target.value)}
             required
-            className="h-11 w-full rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-white px-3"
+            className="h-11 w-full rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-[var(--pp-color-background)] px-3"
           />
         </label>
 
@@ -140,7 +140,7 @@ export default function OnboardingAdminPage() {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             required
-            className="h-11 w-full rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-white px-3"
+            className="h-11 w-full rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-[var(--pp-color-background)] px-3"
           />
         </label>
 
@@ -152,7 +152,7 @@ export default function OnboardingAdminPage() {
             onChange={(event) => setPassword(event.target.value)}
             minLength={8}
             required
-            className="h-11 w-full rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-white px-3"
+            className="h-11 w-full rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-[var(--pp-color-background)] px-3"
           />
         </label>
 

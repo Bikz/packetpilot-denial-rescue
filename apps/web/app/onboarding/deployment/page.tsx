@@ -46,7 +46,7 @@ export default function DeploymentPage() {
             className={`flex items-start gap-3 rounded-[var(--pp-radius-md)] border p-3 transition-all ${
               selectedDeployment === option.id
                 ? "border-[var(--pp-color-primary)] bg-[var(--pp-color-surface-strong)]"
-                : "border-[var(--pp-color-border)] bg-[var(--pp-color-card)] hover:border-[var(--pp-color-ring)]"
+                : "border-[var(--pp-color-border)] bg-[var(--pp-color-background)] hover:border-[var(--pp-color-ring)]"
             }`}
           >
             <input

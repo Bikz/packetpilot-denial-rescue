@@ -50,7 +50,7 @@ export default function WelcomePage() {
             {onboardingSteps.map((step, index) => (
               <div
                 key={step.title}
-                className="flex items-start gap-3 rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-[var(--pp-color-card)] p-3"
+                className="flex items-start gap-3 rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-[var(--pp-color-background)] p-3"
               >
                 <p className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--pp-color-primary)] px-2 text-xs font-bold text-white">
                   {index + 1}
@@ -70,7 +70,7 @@ export default function WelcomePage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2, delay: 0.06 }}
         >
-          <div className="rounded-[var(--pp-radius-lg)] border border-[var(--pp-color-border)] bg-[var(--pp-color-surface)] p-4 sm:p-5">
+          <div className="rounded-[var(--pp-radius-lg)] border border-[var(--pp-color-border)] bg-[var(--pp-color-background)] p-4 sm:p-5">
             <p className="pp-caption text-[var(--pp-color-text)]">Get started</p>
             <h2 className="pp-card-title mt-1">Set up in one flow</h2>
             <p className="pp-body-sm text-[var(--pp-color-text)]">
