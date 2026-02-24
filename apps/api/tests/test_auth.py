@@ -51,3 +51,36 @@ def test_login_records_audit_event(client: TestClient) -> None:
 
     assert events.status_code == 200
     assert any(event["action"] == "login" for event in events.json())
+
+
+def test_admin_can_create_clinician_user(client: TestClient) -> None:
+    bootstrap = client.post(
+        "/auth/bootstrap",
+        json={
+            "organization_name": "Northwind Clinic",
+            "full_name": "Alex Kim",
+            "email": "admin@northwind.com",
+            "password": "super-secret-123",
+        },
+    )
+    assert bootstrap.status_code == 200
+    token = bootstrap.json()["access_token"]
+
+    created = client.post(
+        "/auth/users",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "email": "clinician@northwind.com",
+            "full_name": "Case Clinician",
+            "role": "clinician",
+            "password": "clinician-secret-123",
+        },
+    )
+    assert created.status_code == 201
+    assert created.json()["role"] == "clinician"
+
+    login = client.post(
+        "/auth/login",
+        json={"email": "clinician@northwind.com", "password": "clinician-secret-123"},
+    )
+    assert login.status_code == 200

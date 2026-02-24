@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from collections.abc import Generator
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import get_settings
@@ -53,6 +53,29 @@ def get_session_local():
 def init_db() -> None:
     engine = get_engine()
     Base.metadata.create_all(bind=engine)
+    _apply_sqlite_compat_migrations(engine)
+
+
+def _apply_sqlite_compat_migrations(engine) -> None:
+    if engine.dialect.name != "sqlite":
+        return
+
+    inspector = inspect(engine)
+    table_names = set(inspector.get_table_names())
+    if "case_documents" not in table_names:
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("case_documents")}
+    if "document_kind" in columns:
+        return
+
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "ALTER TABLE case_documents "
+                "ADD COLUMN document_kind VARCHAR(64) NOT NULL DEFAULT 'evidence'"
+            )
+        )
 
 
 def reset_db_engine() -> None:

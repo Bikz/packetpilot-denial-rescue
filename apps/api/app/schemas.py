@@ -41,6 +41,13 @@ class LoginRequest(BaseModel):
     password: str = Field(min_length=8, max_length=128)
 
 
+class UserCreateRequest(BaseModel):
+    email: EmailStr
+    full_name: str = Field(min_length=2, max_length=255)
+    role: RoleType
+    password: str = Field(min_length=8, max_length=128)
+
+
 class SettingsResponse(BaseModel):
     deployment_mode: DeploymentMode
     fhir_base_url: str | None = None

@@ -13,6 +13,7 @@ from app.schemas import (
     BootstrapRequest,
     BootstrapStatusResponse,
     LoginRequest,
+    UserCreateRequest,
     UserResponse,
 )
 from app.security import create_access_token, hash_password, verify_password
@@ -118,4 +119,55 @@ def me(current_user: User = Depends(get_current_user)) -> UserResponse:
         email=current_user.email,
         full_name=current_user.full_name,
         role=current_user.role,
+    )
+
+
+@router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+def create_user(
+    payload: UserCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> UserResponse:
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admin users can create accounts",
+        )
+
+    existing = db.query(User).filter(User.email == payload.email.lower()).first()
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A user with this email already exists",
+        )
+
+    user = User(
+        org_id=current_user.org_id,
+        email=payload.email.lower(),
+        full_name=payload.full_name.strip(),
+        role=payload.role,
+        password_hash=hash_password(payload.password),
+    )
+    db.add(user)
+    db.flush()
+
+    db.add(
+        AuditEvent(
+            org_id=current_user.org_id,
+            user_id=current_user.id,
+            action="user_create",
+            entity_type="user",
+            entity_id=str(user.id),
+            metadata_json={"created_email": user.email, "role": user.role},
+        )
+    )
+    db.commit()
+    db.refresh(user)
+
+    return UserResponse(
+        id=user.id,
+        org_id=user.org_id,
+        email=user.email,
+        full_name=user.full_name,
+        role=user.role,
     )
