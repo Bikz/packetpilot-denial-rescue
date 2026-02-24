@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from app.config import get_settings
 
@@ -22,7 +22,7 @@ class FieldFill:
     field_id: str
     value: str
     confidence: float
-    status: str
+    status: Literal["autofilled", "suggested", "missing"]
     citations: list[Citation]
 
 
@@ -41,6 +41,29 @@ TARGET_FIELDS = [
     "prior_imaging_date",
     "clinical_rationale",
 ]
+
+ALIASED_AUTOFILLED_STATUSES = {"autofilled", "filled", "verified", "complete"}
+ALIASED_SUGGESTED_STATUSES = {"suggested", "review", "partial", "uncertain", "needs_review"}
+
+
+def normalize_fill_status(
+    status: str | None, value: str, confidence: float
+) -> Literal["autofilled", "suggested", "missing"]:
+    has_value = bool(value.strip())
+    if not has_value:
+        return "missing"
+
+    normalized = (status or "").strip().lower()
+    if normalized in ALIASED_AUTOFILLED_STATUSES:
+        if confidence < 0.85:
+            return "suggested"
+        return "autofilled"
+    if normalized in ALIASED_SUGGESTED_STATUSES:
+        return "suggested"
+    if normalized == "missing":
+        return "missing"
+
+    return "suggested"
 
 
 class BaseModelService:
@@ -101,7 +124,7 @@ class MockModelService(BaseModelService):
                 if len(value) < 3:
                     confidence = 0.78
 
-                status = "autofilled" if confidence >= 0.85 else "suggested"
+                status = normalize_fill_status("autofilled", value, confidence)
                 start = max(0, match.start("value") - 40)
                 end = min(len(document.text), match.end("value") + 120)
                 excerpt = document.text[start:end].replace("\n", " ").strip()
@@ -213,9 +236,13 @@ class MedGemmaModelService(BaseModelService):
             normalized.append(
                 FieldFill(
                     field_id=str(fill.get("field_id", "")),
-                    value=str(fill.get("value", "")),
+                    value=str(fill.get("value", "")).strip(),
                     confidence=float(fill.get("confidence", 0.0)),
-                    status=str(fill.get("status", "missing")),
+                    status=normalize_fill_status(
+                        str(fill.get("status", "missing")),
+                        str(fill.get("value", "")).strip(),
+                        float(fill.get("confidence", 0.0)),
+                    ),
                     citations=citations,
                 )
             )

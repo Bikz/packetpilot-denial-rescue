@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -76,6 +77,7 @@ Clinical rationale: Persistent neurologic deficits and failed conservative treat
     assert questionnaire.status_code == 200
     answers = questionnaire.json()["answers"]
     assert answers["primary_diagnosis"]["value"] == "lumbar radiculopathy"
+    assert answers["primary_diagnosis"]["state"] == "filled"
     assert answers["clinical_rationale"]["value"]
 
 
@@ -100,3 +102,36 @@ def test_manual_questionnaire_path_works_without_autofill(client: TestClient) ->
 
     assert update.status_code == 200
     assert update.json()["answers"]["primary_diagnosis"]["value"] == "Lumbar radiculopathy"
+
+
+def test_document_upload_rejects_unsupported_file_type(client: TestClient) -> None:
+    token = _bootstrap_and_token(client)
+    case_id = _create_case(client, token)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    upload = client.post(
+        f"/cases/{case_id}/documents/upload",
+        headers=headers,
+        files={"file": ("malicious.exe", b"MZ", "application/octet-stream")},
+    )
+
+    assert upload.status_code == 400
+    assert "Unsupported file extension" in upload.json()["detail"]
+
+
+def test_document_upload_rejects_oversized_files(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    token = _bootstrap_and_token(client)
+    case_id = _create_case(client, token)
+    headers = {"Authorization": f"Bearer {token}"}
+    monkeypatch.setenv("MAX_UPLOAD_BYTES", "32")
+
+    upload = client.post(
+        f"/cases/{case_id}/documents/upload",
+        headers=headers,
+        files={"file": ("large-note.txt", ("x" * 64).encode("utf-8"), "text/plain")},
+    )
+
+    assert upload.status_code == 413
+    assert "File too large" in upload.json()["detail"]

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.document_service import detect_relevant_snippets, extract_text, save_document_bytes
 from app.db import get_db
 from app.deps import get_current_user
@@ -37,6 +39,28 @@ from app.template_registry import (
 )
 
 router = APIRouter(prefix="/cases", tags=["cases"])
+
+
+def _normalized_content_type(content_type: str | None) -> str:
+    return (content_type or "").split(";", 1)[0].strip().lower()
+
+
+def _validate_upload_type(filename: str, content_type: str | None) -> None:
+    settings = get_settings()
+    extension = Path(filename).suffix.lower()
+    if extension not in settings.allowed_upload_extensions:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported file extension '{extension or '(none)'}'",
+        )
+
+    normalized_type = _normalized_content_type(content_type)
+    if normalized_type and normalized_type != "application/octet-stream":
+        if normalized_type not in settings.allowed_upload_content_types:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unsupported content type '{normalized_type}'",
+            )
 
 
 def _case_response(case: Case) -> CaseResponse:
@@ -246,7 +270,7 @@ def _autofill_response(case_id: int, fills: list[CaseAutofill]) -> AutofillRunRe
                 field_id=fill.field_id,
                 value=fill.value,
                 confidence=fill.confidence,
-                status=fill.status,  # type: ignore[arg-type]
+                status=fill.status,
                 citations=[_citation_from_dict(citation) for citation in fill.citations_json],
             )
             for fill in sorted_fills
@@ -515,9 +539,22 @@ async def upload_case_document(
 ) -> CaseDocumentResponse:
     _get_case_or_404(db, case_id, current_user.org_id)
 
-    content = await file.read()
     filename = file.filename or "uploaded-document"
     content_type = file.content_type or "application/octet-stream"
+    _validate_upload_type(filename, content_type)
+
+    max_upload_bytes = max(get_settings().max_upload_bytes, 1)
+    content = await file.read(max_upload_bytes + 1)
+    if len(content) > max_upload_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail=f"File too large. Max size is {max_upload_bytes} bytes",
+        )
+    if not content:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file is empty",
+        )
 
     storage_path = save_document_bytes(case_id, filename, content)
     extracted_text = extract_text(content_type, filename, content)
@@ -645,7 +682,7 @@ def run_case_autofill(
         if fill.status != "missing":
             merged_answers[fill.field_id] = {
                 "value": fill.value,
-                "state": "verified" if fill.status == "autofilled" else "filled",
+                "state": "filled",
                 "note": "Model draft suggestion. Verify before submission.",
             }
 
