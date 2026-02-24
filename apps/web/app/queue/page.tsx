@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { motion } from "framer-motion";
 
 import { Button, Card, StepShell } from "@packetpilot/ui";
 
 import { AuthGuard } from "@/components/auth-guard";
 import { apiRequest } from "@/lib/api";
-import { clearSession, getSessionUser } from "@/lib/session";
+import { getSessionUser } from "@/lib/session";
+import { WorkspaceFrame } from "@/components/workspace-frame";
 
 type CaseStatus = "draft" | "in_review" | "submitted" | "denied";
 
@@ -67,75 +69,69 @@ function QueueScreen() {
       description="Track active prior authorization requests and start new cases."
       layout="workspace"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-white/90 px-4 py-3 text-sm">
-        <div>
-          <p className="font-semibold">{user?.full_name ?? "Signed in"}</p>
-          <p className="text-[var(--pp-color-muted)]">{user?.email}</p>
-        </div>
-        <p className="rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700">
-          {cases.length} active case{cases.length === 1 ? "" : "s"}
-        </p>
-        <Button
-          variant="ghost"
-          onClick={() => {
-            clearSession();
-            window.location.href = "/login";
+      <WorkspaceFrame
+        user={user}
+        caseStatus={`${cases.length} active case${cases.length === 1 ? "" : "s"}`}
+        quickActions={[
+          { label: "Settings", href: "/settings" },
+          { label: "New case", href: "/cases/new", variant: "secondary" },
+        ]}
+      >
+        {loading ? <p className="text-sm text-[var(--pp-color-muted)]">Loading queue...</p> : null}
+        {error ? <p className="text-sm text-rose-700">{error}</p> : null}
+
+        {!loading && !error && cases.length === 0 ? (
+          <Card className="space-y-3">
+            <h2 className="text-base font-semibold">No cases yet</h2>
+            <p className="text-sm text-[var(--pp-color-muted)]">
+              Start your first prior auth request to begin assembling requirements and evidence.
+            </p>
+            <Link href="/cases/new">
+              <Button>New Case</Button>
+            </Link>
+          </Card>
+        ) : null}
+
+        <motion.div
+          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+          initial="hidden"
+          animate="show"
+          variants={{
+            hidden: { opacity: 0 },
+            show: {
+              opacity: 1,
+              transition: { staggerChildren: 0.06 },
+            },
           }}
         >
-          Sign out
-        </Button>
-      </div>
-
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Link href="/queue">
-            <Button variant="secondary">Queue</Button>
-          </Link>
-          <Link href="/settings">
-            <Button variant="ghost">Settings</Button>
-          </Link>
-        </div>
-        <Link href="/cases/new">
-          <Button>New case</Button>
-        </Link>
-      </div>
-
-      {loading ? <p className="text-sm text-[var(--pp-color-muted)]">Loading queue...</p> : null}
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
-
-      {!loading && !error && cases.length === 0 ? (
-        <Card className="space-y-3">
-          <h2 className="text-base font-semibold">No cases yet</h2>
-          <p className="text-sm text-[var(--pp-color-muted)]">
-            Start your first prior auth request to begin assembling requirements and evidence.
-          </p>
-          <Link href="/cases/new">
-            <Button>New Case</Button>
-          </Link>
-        </Card>
-      ) : null}
-
-      {!loading && !error && cases.length > 0 ? (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {cases.map((item) => (
-            <Link key={item.id} href={`/case/${item.id}`}>
-              <Card className="space-y-3 transition-all duration-200 hover:-translate-y-[1px] hover:border-[var(--pp-color-ring)]">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold">Case #{item.id}</p>
-                  <span className="rounded-full bg-[var(--pp-color-surface-strong)] px-2 py-1 text-xs font-semibold text-[#0a3f7d]">
-                    {statusLabel(item.status)}
-                  </span>
-                </div>
-                <p className="text-sm text-[var(--pp-color-muted)]">Patient: {item.patient_id}</p>
-                <p className="text-sm text-[var(--pp-color-muted)]">Payer: {item.payer_label}</p>
-                <p className="text-xs text-[var(--pp-color-muted)]">
-                  Updated {new Date(item.updated_at).toLocaleString()}
-                </p>
-              </Card>
-            </Link>
+            <motion.div
+              key={item.id}
+              variants={{
+                hidden: { opacity: 0, y: 12 },
+                show: { opacity: 1, y: 0, transition: { duration: 0.18 } },
+              }}
+            >
+              <Link href={`/case/${item.id}`}>
+                <Card className="h-full space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold">Case #{item.id}</p>
+                    <span className="rounded-full bg-[var(--pp-color-surface)] px-2 py-1 text-xs font-semibold text-[var(--pp-color-primary)]">
+                      {statusLabel(item.status)}
+                    </span>
+                  </div>
+                  <p className="text-sm font-medium text-[var(--pp-color-text)]">Patient: {item.patient_id}</p>
+                  <p className="text-sm text-[var(--pp-color-muted)]">Payer: {item.payer_label}</p>
+                  <p className="text-xs text-[var(--pp-color-muted)] mt-auto pt-2">
+                    Updated {new Date(item.updated_at).toLocaleString()}
+                  </p>
+                </Card>
+              </Link>
+            </motion.div>
           ))}
-        </div>
-      ) : null}
+        </motion.div>
+      </WorkspaceFrame>
+
     </StepShell>
   );
 }

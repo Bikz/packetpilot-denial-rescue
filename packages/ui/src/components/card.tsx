@@ -1,15 +1,18 @@
-import { type HTMLAttributes } from "react";
+import React, { type HTMLAttributes } from "react";
 
 import { cn } from "../lib/cn";
 
-export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return (
+export const Card = React.forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
     <div
+      ref={ref}
       className={cn(
-        "rounded-[var(--pp-radius-lg)] border border-[var(--pp-color-border)] bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] p-6 shadow-[var(--pp-shadow-sm)]",
+        "rounded-[var(--pp-radius-lg)] bg-[var(--pp-color-card)] text-[var(--pp-color-text)] border border-[var(--pp-color-border)] shadow-[var(--pp-shadow-sm)] hover:shadow-[var(--pp-shadow-md)] transition-all duration-250",
         className,
       )}
       {...props}
     />
-  );
-}
+  )
+);
+
+Card.displayName = "Card";
