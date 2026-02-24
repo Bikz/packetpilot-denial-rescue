@@ -104,6 +104,75 @@ def test_manual_questionnaire_path_works_without_autofill(client: TestClient) ->
     assert update.json()["answers"]["primary_diagnosis"]["value"] == "Lumbar radiculopathy"
 
 
+def test_autofill_requires_evidence_documents(client: TestClient) -> None:
+    token = _bootstrap_and_token(client)
+    case_id = _create_case(client, token)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    denial_text = """
+Reference ID: DEN-2026-150
+Deadline: 03/10/2026
+Please provide:
+- Updated clinical note
+""".strip()
+    denial_upload = client.post(
+        f"/cases/{case_id}/denial/upload",
+        headers=headers,
+        files={"file": ("denial-letter.txt", denial_text.encode("utf-8"), "text/plain")},
+    )
+    assert denial_upload.status_code == 200
+
+    run = client.post(f"/cases/{case_id}/autofill", headers=headers)
+    assert run.status_code == 400
+    assert "evidence document" in run.json()["detail"]
+
+
+def test_autofill_ignores_denial_letters_when_evidence_exists(client: TestClient) -> None:
+    token = _bootstrap_and_token(client)
+    case_id = _create_case(client, token)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    evidence_text = """
+Primary diagnosis: Lumbar radiculopathy
+Symptom duration (weeks): 10
+Neurologic deficit present: yes
+Conservative therapy duration (weeks): 6
+Physical therapy trial documented: yes
+Date of prior imaging: 2025-11-05
+Clinical rationale: Persistent deficits despite therapy.
+""".strip()
+    evidence_upload = client.post(
+        f"/cases/{case_id}/documents/upload",
+        headers=headers,
+        files={"file": ("evidence.txt", evidence_text.encode("utf-8"), "text/plain")},
+    )
+    assert evidence_upload.status_code == 200
+    evidence_doc_id = int(evidence_upload.json()["id"])
+
+    denial_text = """
+Denial reason: missing documentation
+Primary diagnosis: DENIAL-CONTENT-ONLY
+Please provide:
+- Updated clinical note
+""".strip()
+    denial_upload = client.post(
+        f"/cases/{case_id}/denial/upload",
+        headers=headers,
+        files={"file": ("denial-letter.txt", denial_text.encode("utf-8"), "text/plain")},
+    )
+    assert denial_upload.status_code == 200
+
+    run = client.post(f"/cases/{case_id}/autofill", headers=headers)
+    assert run.status_code == 200
+    payload = run.json()
+
+    populated = [fill for fill in payload["fills"] if fill["status"] != "missing"]
+    assert populated
+    for fill in populated:
+        for citation in fill["citations"]:
+            assert citation["doc_id"] == evidence_doc_id
+
+
 def test_document_upload_rejects_unsupported_file_type(client: TestClient) -> None:
     token = _bootstrap_and_token(client)
     case_id = _create_case(client, token)

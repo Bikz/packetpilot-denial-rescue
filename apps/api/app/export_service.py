@@ -3,7 +3,6 @@ from __future__ import annotations
 import base64
 import io
 import json
-from datetime import datetime
 from typing import Any
 
 from reportlab.lib.pagesizes import LETTER
@@ -25,6 +24,8 @@ def _case_audit_summary(
 ) -> list[dict[str, Any]]:
     summary: list[dict[str, Any]] = []
     for event in audit_events:
+        if event.action == "packet_export":
+            continue
         event_case_id = None
         if event.metadata_json and isinstance(event.metadata_json, dict):
             raw_case_id = event.metadata_json.get("case_id")
@@ -156,7 +157,7 @@ def _draw_wrapped_text(
 
 def build_packet_pdf_bytes(packet: dict[str, Any]) -> bytes:
     buffer = io.BytesIO()
-    c = canvas.Canvas(buffer, pagesize=LETTER, pageCompression=0)
+    c = canvas.Canvas(buffer, pagesize=LETTER, pageCompression=0, invariant=1)
     c.setTitle("PacketPilot Prior Authorization Packet")
     c.setAuthor("PacketPilot")
     c.setCreator("PacketPilot")
@@ -219,7 +220,3 @@ def encode_pdf_base64(pdf_bytes: bytes) -> str:
 def stable_json(data: dict[str, Any]) -> dict[str, Any]:
     # Round-trip with sorted keys to produce deterministic structure ordering.
     return json.loads(json.dumps(data, sort_keys=True, ensure_ascii=True))
-
-
-def now_utc() -> datetime:
-    return datetime.utcnow()

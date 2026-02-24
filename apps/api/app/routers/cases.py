@@ -632,14 +632,18 @@ def run_case_autofill(
 
     documents = (
         db.query(CaseDocument)
-        .filter(CaseDocument.case_id == case_id, CaseDocument.org_id == current_user.org_id)
+        .filter(
+            CaseDocument.case_id == case_id,
+            CaseDocument.org_id == current_user.org_id,
+            CaseDocument.document_kind == "evidence",
+        )
         .order_by(CaseDocument.created_at.asc(), CaseDocument.id.asc())
         .all()
     )
     if not documents:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Upload at least one document before running autofill",
+            detail="Upload at least one evidence document before running autofill",
         )
 
     model_documents = [

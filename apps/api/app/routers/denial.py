@@ -55,15 +55,49 @@ def _get_or_create_questionnaire(db: Session, case: Case, user: User) -> CaseQue
     return questionnaire
 
 
-def _denial_response(case_id: int, denial: CaseDenial) -> DenialAnalysisResponse:
+def _resolution_context(db: Session, case: Case) -> str:
+    questionnaire = (
+        db.query(CaseQuestionnaire)
+        .filter(CaseQuestionnaire.case_id == case.id, CaseQuestionnaire.org_id == case.org_id)
+        .first()
+    )
+    answer_values: list[str] = []
+    if questionnaire is not None:
+        answers = questionnaire.answers_json or {}
+        answer_values = [
+            str((item or {}).get("value") or "").strip()
+            for item in answers.values()
+            if str((item or {}).get("value") or "").strip()
+        ]
+
+    evidence_documents = (
+        db.query(CaseDocument)
+        .filter(
+            CaseDocument.case_id == case.id,
+            CaseDocument.org_id == case.org_id,
+            CaseDocument.document_kind == "evidence",
+        )
+        .all()
+    )
+    evidence_text = [
+        document.extracted_text.strip()
+        for document in evidence_documents
+        if document.extracted_text.strip()
+    ]
+    return "\n".join(answer_values + evidence_text)
+
+
+def _denial_response(
+    case_id: int, denial: CaseDenial, context_text: str | None = None
+) -> DenialAnalysisResponse:
+    gap_report = build_gap_report(list(denial.missing_items_json or []), context_text=context_text)
     return DenialAnalysisResponse(
         case_id=case_id,
         denial_document_id=int(denial.denial_document_id or 0),
         reasons=list(denial.reasons_json or []),
         missing_items=list(denial.missing_items_json or []),
         gap_report=[
-            GapReportItemResponse(item=item, status="missing")
-            for item in list(denial.missing_items_json or [])
+            GapReportItemResponse(item=item["item"], status=item["status"]) for item in gap_report
         ],
         reference_id=denial.reference_id,
         deadline_text=denial.deadline_text,
@@ -164,6 +198,7 @@ async def upload_denial_letter(
 
     db.commit()
     db.refresh(denial)
+    context_text = _resolution_context(db, case)
 
     return DenialAnalysisResponse(
         case_id=case.id,
@@ -172,7 +207,7 @@ async def upload_denial_letter(
         missing_items=parsed.missing_items,
         gap_report=[
             GapReportItemResponse(item=item["item"], status=item["status"])
-            for item in build_gap_report(parsed.missing_items)
+            for item in build_gap_report(parsed.missing_items, context_text=context_text)
         ],
         reference_id=parsed.reference_id,
         deadline_text=parsed.deadline_text,
@@ -198,4 +233,4 @@ def get_denial_analysis(
             status_code=status.HTTP_404_NOT_FOUND, detail="No denial letter uploaded"
         )
 
-    return _denial_response(case.id, denial)
+    return _denial_response(case.id, denial, context_text=_resolution_context(db, case))

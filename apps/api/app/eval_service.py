@@ -19,6 +19,13 @@ def _as_utc(value: datetime) -> datetime:
     return value.astimezone(UTC)
 
 
+def _latest_timestamp(values: list[datetime | None]) -> datetime | None:
+    timestamps = [_as_utc(item) for item in values if item is not None]
+    if not timestamps:
+        return None
+    return max(timestamps)
+
+
 def compute_case_metrics(
     case: Case,
     template: dict[str, Any],
@@ -26,7 +33,6 @@ def compute_case_metrics(
     autofills: list[CaseAutofill],
     documents: list[CaseDocument],
     audit_events: list[AuditEvent],
-    export_created_at: datetime,
 ) -> dict[str, Any]:
     answers = questionnaire.answers_json or {}
     required_field_ids = get_template_required_field_ids(template)
@@ -67,6 +73,15 @@ def compute_case_metrics(
         (event.created_at for event in audit_events if event.action == "autofill_run"),
         default=None,
     )
+    packet_export_anchor = _latest_timestamp(
+        [
+            case.created_at,
+            first_evidence_uploaded_at,
+            autofill_event_at,
+            questionnaire.clinician_attested_at,
+            first_denial_uploaded_at,
+        ]
+    )
 
     instrumentation_events = [
         {"name": "case_created", "timestamp": _iso(case.created_at)},
@@ -74,11 +89,11 @@ def compute_case_metrics(
         {"name": "autofill_run", "timestamp": _iso(autofill_event_at)},
         {"name": "attested", "timestamp": _iso(questionnaire.clinician_attested_at)},
         {"name": "first_denial_uploaded", "timestamp": _iso(first_denial_uploaded_at)},
-        {"name": "packet_exported", "timestamp": _iso(export_created_at)},
+        {"name": "packet_exported", "timestamp": _iso(packet_export_anchor)},
     ]
 
     case_created_at = _as_utc(case.created_at)
-    export_at = _as_utc(export_created_at)
+    export_at = _as_utc(packet_export_anchor or case.created_at)
     time_to_packet_seconds = int((export_at - case_created_at).total_seconds())
     if time_to_packet_seconds < 0:
         time_to_packet_seconds = 0

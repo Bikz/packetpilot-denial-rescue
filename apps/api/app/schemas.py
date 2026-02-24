@@ -250,3 +250,11 @@ class PacketExportResponse(BaseModel):
     metrics_json: dict[str, Any]
     pdf_base64: str
     created_at: datetime
+
+
+class PacketExportListItemResponse(BaseModel):
+    export_id: int
+    case_id: int
+    export_type: Literal["initial", "appeal"]
+    metrics_json: dict[str, Any]
+    created_at: datetime

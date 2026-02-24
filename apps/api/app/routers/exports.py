@@ -3,9 +3,11 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.denial_service import build_appeal_letter
 from app.deps import get_current_user
 from app.eval_service import compute_case_metrics
 from app.export_service import (
@@ -24,7 +26,7 @@ from app.models import (
     CaseQuestionnaire,
     User,
 )
-from app.schemas import PacketExportRequest, PacketExportResponse
+from app.schemas import PacketExportListItemResponse, PacketExportRequest, PacketExportResponse
 from app.template_registry import get_service_line_template, missing_required_fields
 
 router = APIRouter(prefix="/cases", tags=["exports"])
@@ -49,6 +51,47 @@ def _get_questionnaire_or_404(db: Session, case_id: int, org_id: int) -> CaseQue
             detail="Questionnaire is not initialized for this case",
         )
     return questionnaire
+
+
+def _load_case_audit_events(db: Session, case: Case, org_id: int) -> list[AuditEvent]:
+    document_entity_ids = [
+        str(document_id)
+        for (document_id,) in db.query(CaseDocument.id)
+        .filter(CaseDocument.case_id == case.id, CaseDocument.org_id == org_id)
+        .all()
+    ]
+    export_entity_ids = [
+        str(export_id)
+        for (export_id,) in db.query(CaseExport.id)
+        .filter(CaseExport.case_id == case.id, CaseExport.org_id == org_id)
+        .all()
+    ]
+
+    filters = [
+        and_(AuditEvent.entity_type == "case", AuditEvent.entity_id == str(case.id)),
+        and_(AuditEvent.entity_type == "case_denial", AuditEvent.entity_id == str(case.id)),
+    ]
+    if document_entity_ids:
+        filters.append(
+            and_(
+                AuditEvent.entity_type == "case_document",
+                AuditEvent.entity_id.in_(document_entity_ids),
+            )
+        )
+    if export_entity_ids:
+        filters.append(
+            and_(
+                AuditEvent.entity_type == "case_export",
+                AuditEvent.entity_id.in_(export_entity_ids),
+            )
+        )
+
+    return (
+        db.query(AuditEvent)
+        .filter(AuditEvent.org_id == org_id, or_(*filters))
+        .order_by(AuditEvent.created_at.asc(), AuditEvent.id.asc())
+        .all()
+    )
 
 
 @router.post("/{case_id}/exports/generate", response_model=PacketExportResponse)
@@ -91,6 +134,23 @@ def generate_case_export(
             detail="Appeal export requires an uploaded denial letter",
         )
 
+    if payload.export_type == "appeal" and denial is not None:
+        refreshed_appeal_draft = build_appeal_letter(
+            case_id=case.id,
+            payer_label=case.payer_label,
+            reasons=list(denial.reasons_json or []),
+            missing_items=list(denial.missing_items_json or []),
+            clinical_rationale=str(
+                (answers.get("clinical_rationale") or {}).get("value") or ""
+            ).strip(),
+            citations=list(denial.citations_json or []),
+        )
+        if denial.appeal_letter_draft != refreshed_appeal_draft:
+            denial.appeal_letter_draft = refreshed_appeal_draft
+            denial.updated_by_user_id = current_user.id
+            denial.updated_at = datetime.now(timezone.utc)
+            db.add(denial)
+
     documents = (
         db.query(CaseDocument)
         .filter(CaseDocument.case_id == case.id, CaseDocument.org_id == current_user.org_id)
@@ -103,12 +163,7 @@ def generate_case_export(
         .order_by(CaseAutofill.field_id.asc())
         .all()
     )
-    audit_events = (
-        db.query(AuditEvent)
-        .filter(AuditEvent.org_id == current_user.org_id)
-        .order_by(AuditEvent.created_at.asc(), AuditEvent.id.asc())
-        .all()
-    )
+    audit_events = _load_case_audit_events(db, case, current_user.org_id)
     org_users = (
         db.query(User).filter(User.org_id == current_user.org_id).order_by(User.id.asc()).all()
     )
@@ -135,7 +190,6 @@ def generate_case_export(
             autofills=autofills,
             documents=documents,
             audit_events=audit_events,
-            export_created_at=created_at,
         )
     )
     pdf_base64 = encode_pdf_base64(build_packet_pdf_bytes(packet_json))
@@ -182,12 +236,12 @@ def generate_case_export(
     )
 
 
-@router.get("/{case_id}/exports", response_model=list[PacketExportResponse])
+@router.get("/{case_id}/exports", response_model=list[PacketExportListItemResponse])
 def list_case_exports(
     case_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> list[PacketExportResponse]:
+) -> list[PacketExportListItemResponse]:
     case = _get_case_or_404(db, case_id, current_user.org_id)
     exports = (
         db.query(CaseExport)
@@ -196,14 +250,43 @@ def list_case_exports(
         .all()
     )
     return [
-        PacketExportResponse(
+        PacketExportListItemResponse(
             export_id=item.id,
             case_id=case.id,
             export_type=item.export_type,  # type: ignore[arg-type]
-            packet_json=item.packet_json,
             metrics_json=item.metrics_json,
-            pdf_base64=item.pdf_base64,
             created_at=item.created_at,
         )
         for item in exports
     ]
+
+
+@router.get("/{case_id}/exports/{export_id}", response_model=PacketExportResponse)
+def get_case_export(
+    case_id: int,
+    export_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> PacketExportResponse:
+    case = _get_case_or_404(db, case_id, current_user.org_id)
+    export_record = (
+        db.query(CaseExport)
+        .filter(
+            CaseExport.id == export_id,
+            CaseExport.case_id == case.id,
+            CaseExport.org_id == current_user.org_id,
+        )
+        .first()
+    )
+    if export_record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Export not found")
+
+    return PacketExportResponse(
+        export_id=export_record.id,
+        case_id=case.id,
+        export_type=export_record.export_type,  # type: ignore[arg-type]
+        packet_json=export_record.packet_json,
+        metrics_json=export_record.metrics_json,
+        pdf_base64=export_record.pdf_base64,
+        created_at=export_record.created_at,
+    )

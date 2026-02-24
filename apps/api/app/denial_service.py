@@ -28,6 +28,25 @@ MISSING_ITEM_HINTS: list[tuple[str, str]] = [
     ("Neurologic exam findings", r"neurologic exam|deficit"),
 ]
 
+STOPWORDS = {
+    "the",
+    "and",
+    "for",
+    "with",
+    "from",
+    "that",
+    "this",
+    "your",
+    "please",
+    "details",
+    "documentation",
+    "document",
+    "report",
+    "updated",
+}
+
+TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
+
 
 def _find_citation(doc_id: int, text: str, pattern: str) -> dict[str, int | str] | None:
     match = re.search(pattern, text, flags=re.IGNORECASE)
@@ -101,7 +120,8 @@ def parse_denial_letter(doc_id: int, text: str) -> ParsedDenial:
         flags=re.IGNORECASE,
     )
     deadline_match = re.search(
-        r"(?:deadline|due(?:\s+date)?)\s*[:\-]?\s*([A-Za-z]+\s+\d{1,2},\s+\d{4}|\d{4}-\d{2}-\d{2})",
+        r"(?:deadline|due(?:\s+date)?)\s*[:\-]?\s*"
+        r"([A-Za-z]+\s+\d{1,2},\s+\d{4}|\d{4}-\d{2}-\d{2}|\d{1,2}/\d{1,2}/\d{2,4})",
         normalized_text,
         flags=re.IGNORECASE,
     )
@@ -115,8 +135,27 @@ def parse_denial_letter(doc_id: int, text: str) -> ParsedDenial:
     )
 
 
-def build_gap_report(missing_items: list[str]) -> list[dict[str, str]]:
-    return [{"item": item, "status": "missing"} for item in missing_items]
+def _keyword_tokens(value: str) -> list[str]:
+    tokens = [token for token in TOKEN_PATTERN.findall(value.lower()) if len(token) >= 3]
+    return [token for token in tokens if token not in STOPWORDS]
+
+
+def build_gap_report(
+    missing_items: list[str], context_text: str | None = None
+) -> list[dict[str, str]]:
+    normalized_context = (context_text or "").lower()
+    report: list[dict[str, str]] = []
+    for item in missing_items:
+        keywords = _keyword_tokens(item)
+        if not keywords or not normalized_context:
+            report.append({"item": item, "status": "missing"})
+            continue
+
+        matched_count = sum(1 for keyword in keywords if keyword in normalized_context)
+        required_matches = 1 if len(keywords) == 1 else 2
+        status = "resolved" if matched_count >= required_matches else "missing"
+        report.append({"item": item, "status": status})
+    return report
 
 
 def build_appeal_letter(

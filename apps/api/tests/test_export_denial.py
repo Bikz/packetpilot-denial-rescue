@@ -126,6 +126,39 @@ def test_generate_initial_export_schema(client: TestClient) -> None:
     pdf_bytes = base64.b64decode(payload["pdf_base64"])
     assert pdf_bytes.startswith(b"%PDF")
 
+    listed = client.get(
+        f"/cases/{case_id}/exports",
+        headers={"Authorization": f"Bearer {clinician_token}"},
+    )
+    assert listed.status_code == 200
+    listed_payload = listed.json()
+    assert listed_payload
+    first = listed_payload[0]
+    assert "pdf_base64" not in first
+    assert "packet_json" not in first
+    assert first["export_id"] == payload["export_id"]
+
+    detail = client.get(
+        f"/cases/{case_id}/exports/{payload['export_id']}",
+        headers={"Authorization": f"Bearer {clinician_token}"},
+    )
+    assert detail.status_code == 200
+    detail_payload = detail.json()
+    assert detail_payload["export_id"] == payload["export_id"]
+    assert detail_payload["packet_json"] == payload["packet_json"]
+    assert detail_payload["pdf_base64"] == payload["pdf_base64"]
+
+    repeat = client.post(
+        f"/cases/{case_id}/exports/generate",
+        headers={"Authorization": f"Bearer {clinician_token}"},
+        json={"export_type": "initial"},
+    )
+    assert repeat.status_code == 200
+    repeat_payload = repeat.json()
+    assert repeat_payload["packet_json"] == payload["packet_json"]
+    assert repeat_payload["metrics_json"] == payload["metrics_json"]
+    assert repeat_payload["pdf_base64"] == payload["pdf_base64"]
+
 
 def test_denial_to_appeal_export_schema(client: TestClient) -> None:
     admin_token = _bootstrap_and_token(client)
@@ -142,7 +175,7 @@ def test_denial_to_appeal_export_schema(client: TestClient) -> None:
 
     denial_text = """
 Reference ID: DEN-2026-041
-Deadline: 2026-03-10
+Deadline: 03/10/2026
 Denial reason: Medical necessity was not established due to missing documentation.
 Please provide:
 - Updated clinical note
@@ -159,6 +192,8 @@ Please provide:
     assert denial_payload["reasons"]
     assert denial_payload["missing_items"]
     assert denial_payload["appeal_letter_draft"]
+    assert denial_payload["deadline_text"] == "03/10/2026"
+    assert any(item["status"] == "resolved" for item in denial_payload["gap_report"])
 
     appeal = client.post(
         f"/cases/{case_id}/exports/generate",
@@ -171,3 +206,57 @@ Please provide:
     assert appeal_payload["export_type"] == "appeal"
     assert "denial" in appeal_payload["packet_json"]
     assert appeal_payload["packet_json"]["denial"]["appeal_letter_draft"]
+
+
+def test_appeal_draft_refreshes_with_latest_clinical_rationale(client: TestClient) -> None:
+    admin_token = _bootstrap_and_token(client)
+    _create_clinician_user()
+    clinician_token = _login(client, "clinician@northwind.com", "clinician-secret-123")
+    case_id = _create_case(client, admin_token)
+
+    _upload_evidence(client, admin_token, case_id)
+    run = client.post(
+        f"/cases/{case_id}/autofill", headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert run.status_code == 200
+    _attest_case(client, clinician_token, case_id)
+
+    denial_text = """
+Reference ID: DEN-2026-900
+Deadline: 03/21/2026
+Denial reason: Medical necessity was not established due to missing documentation.
+Please provide:
+- Updated clinical note
+""".strip()
+    denial = client.post(
+        f"/cases/{case_id}/denial/upload",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        files={"file": ("denial-letter.txt", denial_text.encode("utf-8"), "text/plain")},
+    )
+    assert denial.status_code == 200
+
+    updated_rationale = "Updated rationale with neurologic deficits documented at follow-up."
+    update_answers = client.put(
+        f"/cases/{case_id}/questionnaire",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "answers": {
+                "clinical_rationale": {
+                    "value": updated_rationale,
+                    "state": "verified",
+                    "note": "Updated after denial review",
+                }
+            }
+        },
+    )
+    assert update_answers.status_code == 200
+
+    _attest_case(client, clinician_token, case_id)
+    appeal = client.post(
+        f"/cases/{case_id}/exports/generate",
+        headers={"Authorization": f"Bearer {clinician_token}"},
+        json={"export_type": "appeal"},
+    )
+    assert appeal.status_code == 200
+    draft = appeal.json()["packet_json"]["denial"]["appeal_letter_draft"]
+    assert updated_rationale in draft
