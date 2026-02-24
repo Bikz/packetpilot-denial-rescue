@@ -9,10 +9,15 @@ import {
 } from "@packetpilot/templates";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button, Card, StepShell } from "@packetpilot/ui";
 
+import {
+  CitationDrawer,
+  type AutofillFieldFill,
+  type Citation,
+} from "@/components/citation-drawer";
 import { AuthGuard } from "@/components/auth-guard";
 import { apiRequest } from "@/lib/api";
 import { getSessionUser } from "@/lib/session";
@@ -73,6 +78,31 @@ type CaseQuestionnaire = {
   export_enabled: boolean;
 };
 
+type CaseDocumentListItem = {
+  id: number;
+  case_id: number;
+  filename: string;
+  content_type: string;
+  text_preview: string;
+  snippets: Citation[];
+  created_at: string;
+};
+
+type CaseDocumentDetail = {
+  id: number;
+  case_id: number;
+  filename: string;
+  content_type: string;
+  extracted_text: string;
+  snippets: Citation[];
+  created_at: string;
+};
+
+type AutofillRun = {
+  case_id: number;
+  fills: AutofillFieldFill[];
+};
+
 const TABS: Array<{ id: WorkspaceTab; label: string }> = [
   { id: "requirements", label: "Requirements" },
   { id: "evidence", label: "Evidence" },
@@ -129,16 +159,25 @@ function CaseWorkspaceScreen() {
   const params = useParams<{ caseId: string }>();
   const caseId = Number(params.caseId);
   const user = useMemo(() => getSessionUser(), []);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [selectedTab, setSelectedTab] = useState<WorkspaceTab>("requirements");
   const [caseRecord, setCaseRecord] = useState<CaseRecord | null>(null);
   const [snapshot, setSnapshot] = useState<FhirPatientSnapshot | null>(null);
   const [questionnaire, setQuestionnaire] = useState<CaseQuestionnaire | null>(null);
   const [answers, setAnswers] = useState<Record<string, QuestionnaireAnswer>>({});
+  const [documents, setDocuments] = useState<CaseDocumentListItem[]>([]);
+  const [selectedDocId, setSelectedDocId] = useState<number | null>(null);
+  const [selectedDocument, setSelectedDocument] = useState<CaseDocumentDetail | null>(null);
+  const [autofill, setAutofill] = useState<AutofillRun>({ case_id: caseId, fills: [] });
+  const [openCitationFieldId, setOpenCitationFieldId] = useState<string | null>(null);
+
   const [attestChecked, setAttestChecked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [attesting, setAttesting] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [autofilling, setAutofilling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -146,6 +185,14 @@ function CaseWorkspaceScreen() {
     () => (caseRecord ? getServiceLineTemplate(caseRecord.service_line_template_id) : null),
     [caseRecord],
   );
+
+  const autofillByFieldId = useMemo(() => {
+    const map = new Map<string, AutofillFieldFill>();
+    for (const fill of autofill.fills) {
+      map.set(fill.field_id, fill);
+    }
+    return map;
+  }, [autofill]);
 
   useEffect(() => {
     let active = true;
@@ -156,28 +203,35 @@ function CaseWorkspaceScreen() {
         if (!active) return;
         setCaseRecord(currentCase);
 
-        const [patientSnapshot, caseQuestionnaire] = await Promise.all([
+        const [patientSnapshot, caseQuestionnaire, caseDocuments, caseAutofill] = await Promise.all([
           apiRequest<FhirPatientSnapshot>(`/fhir/patients/${currentCase.patient_id}/snapshot`, {
             auth: true,
           }),
           apiRequest<CaseQuestionnaire>(`/cases/${caseId}/questionnaire`, { auth: true }),
+          apiRequest<CaseDocumentListItem[]>(`/cases/${caseId}/documents`, { auth: true }),
+          apiRequest<AutofillRun>(`/cases/${caseId}/autofill`, { auth: true }),
         ]);
 
         if (!active) return;
+
         setSnapshot(patientSnapshot);
         setQuestionnaire(caseQuestionnaire);
+        setDocuments(caseDocuments);
+        setAutofill(caseAutofill);
 
         const loadedTemplate = getServiceLineTemplate(currentCase.service_line_template_id);
         if (loadedTemplate) {
           setAnswers(normalizeAnswers(loadedTemplate, caseQuestionnaire.answers));
         }
+
+        if (caseDocuments.length > 0) {
+          setSelectedDocId(caseDocuments[0].id);
+        }
       } catch (loadError) {
         if (!active) return;
         setError(loadError instanceof Error ? loadError.message : "Failed to load workspace");
       } finally {
-        if (active) {
-          setLoading(false);
-        }
+        if (active) setLoading(false);
       }
     }
 
@@ -189,6 +243,26 @@ function CaseWorkspaceScreen() {
       active = false;
     };
   }, [caseId]);
+
+  useEffect(() => {
+    if (!selectedDocId || !caseRecord) {
+      setSelectedDocument(null);
+      return;
+    }
+
+    let active = true;
+    apiRequest<CaseDocumentDetail>(`/cases/${caseRecord.id}/documents/${selectedDocId}`, { auth: true })
+      .then((document) => {
+        if (active) setSelectedDocument(document);
+      })
+      .catch((loadError) => {
+        if (active) setError(loadError instanceof Error ? loadError.message : "Failed to load document");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedDocId, caseRecord]);
 
   const itemByFieldId = useMemo(() => {
     const map = new Map<string, QuestionnaireItem>();
@@ -220,6 +294,18 @@ function CaseWorkspaceScreen() {
     setAnswers(normalizeAnswers(template, latest.answers));
   }
 
+  async function refreshDocuments() {
+    if (!caseRecord) return;
+
+    const latest = await apiRequest<CaseDocumentListItem[]>(`/cases/${caseRecord.id}/documents`, {
+      auth: true,
+    });
+    setDocuments(latest);
+    if (!selectedDocId && latest.length > 0) {
+      setSelectedDocId(latest[0].id);
+    }
+  }
+
   async function handleSaveAnswers() {
     if (!caseRecord || !template) return;
 
@@ -240,6 +326,63 @@ function CaseWorkspaceScreen() {
       setError(saveError instanceof Error ? saveError.message : "Failed to save questionnaire");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleUploadDocument() {
+    if (!caseRecord) return;
+    const file = fileInputRef.current?.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    setError(null);
+
+    try {
+      const form = new FormData();
+      form.append("file", file);
+
+      const uploaded = await apiRequest<CaseDocumentDetail>(
+        `/cases/${caseRecord.id}/documents/upload`,
+        {
+          method: "POST",
+          auth: true,
+          body: form,
+        },
+      );
+
+      await refreshDocuments();
+      setSelectedDocId(uploaded.id);
+      setToast("Document uploaded");
+      setTimeout(() => setToast(null), 2200);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : "Failed to upload document");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleRunAutofill() {
+    if (!caseRecord || !template) return;
+
+    setAutofilling(true);
+    setError(null);
+
+    try {
+      const payload = await apiRequest<AutofillRun>(`/cases/${caseRecord.id}/autofill`, {
+        method: "POST",
+        auth: true,
+      });
+      setAutofill(payload);
+      await refreshQuestionnaire();
+      setToast("Autofill complete. Model output is a draft; verify each field.");
+      setTimeout(() => setToast(null), 2800);
+    } catch (autofillError) {
+      setError(autofillError instanceof Error ? autofillError.message : "Autofill failed");
+    } finally {
+      setAutofilling(false);
     }
   }
 
@@ -305,13 +448,38 @@ function CaseWorkspaceScreen() {
     );
   }
 
+  function fieldStatusColor(fieldId: string, answer: QuestionnaireAnswer): {
+    badge: string;
+    label: string;
+  } {
+    const fill = autofillByFieldId.get(fieldId);
+    if (fill?.status === "autofilled") {
+      return { badge: "bg-emerald-100 text-emerald-700", label: "Autofilled" };
+    }
+    if (fill?.status === "suggested") {
+      return { badge: "bg-amber-100 text-amber-700", label: "Suggested" };
+    }
+
+    if (answer.state === "verified") {
+      return { badge: "bg-emerald-100 text-emerald-700", label: "Verified" };
+    }
+    if (answer.state === "filled") {
+      return { badge: "bg-amber-100 text-amber-700", label: "Filled" };
+    }
+    return { badge: "bg-rose-100 text-rose-700", label: "Missing" };
+  }
+
   const activeTab = TABS.find((tab) => tab.id === selectedTab) ?? TABS[0];
+  const openFill = openCitationFieldId ? autofillByFieldId.get(openCitationFieldId) ?? null : null;
+  const openFieldLabel = openCitationFieldId
+    ? (itemByFieldId.get(openCitationFieldId)?.label ?? openCitationFieldId)
+    : "";
 
   return (
     <StepShell
       eyebrow="Case Workspace"
       title={`Case #${Number.isNaN(caseId) ? "-" : caseId}`}
-      description="Complete requirements, fill questionnaire fields, and route for clinician attestation."
+      description="Complete requirements, ingest evidence, and verify model-assisted field fills."
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -409,9 +577,102 @@ function CaseWorkspaceScreen() {
         </Card>
       ) : null}
 
+      {template && activeTab.id === "evidence" ? (
+        <Card className="space-y-4">
+          <h2 className="text-base font-semibold">Evidence</h2>
+
+          <div className="rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] p-3">
+            <p className="text-sm font-semibold">Upload evidence document</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <input ref={fileInputRef} type="file" accept=".txt,.md,.pdf,.png,.jpg,.jpeg" />
+              <Button onClick={handleUploadDocument} disabled={uploading}>
+                {uploading ? "Uploading..." : "Upload"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <p className="text-sm font-semibold">Documents</p>
+              {documents.length === 0 ? (
+                <p className="text-sm text-[var(--pp-color-muted)]">No evidence documents uploaded.</p>
+              ) : (
+                documents.map((document) => (
+                  <button
+                    key={document.id}
+                    type="button"
+                    onClick={() => setSelectedDocId(document.id)}
+                    className={
+                      selectedDocId === document.id
+                        ? "w-full rounded-[var(--pp-radius-md)] border border-[var(--pp-color-ring)] bg-white px-3 py-2 text-left"
+                        : "w-full rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-[var(--pp-color-surface)] px-3 py-2 text-left"
+                    }
+                  >
+                    <p className="text-sm font-semibold">{document.filename}</p>
+                    <p className="text-xs text-[var(--pp-color-muted)]">{document.text_preview || "No preview"}</p>
+                  </button>
+                ))
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-semibold">Document viewer</p>
+              {!selectedDocument ? (
+                <p className="text-sm text-[var(--pp-color-muted)]">Select a document to inspect extracted text.</p>
+              ) : (
+                <div className="space-y-2">
+                  <div className="rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-[var(--pp-color-surface)] px-3 py-2">
+                    <p className="text-sm font-semibold">{selectedDocument.filename}</p>
+                    <p className="text-xs text-[var(--pp-color-muted)]">{selectedDocument.content_type}</p>
+                  </div>
+
+                  <div className="max-h-44 overflow-auto rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-white p-3 text-xs leading-relaxed whitespace-pre-wrap">
+                    {selectedDocument.extracted_text || "No text extracted"}
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--pp-color-muted)]">
+                      Detected snippets
+                    </p>
+                    <div className="space-y-1">
+                      {selectedDocument.snippets.length === 0 ? (
+                        <p className="text-xs text-[var(--pp-color-muted)]">No snippets detected.</p>
+                      ) : (
+                        selectedDocument.snippets.map((snippet, index) => (
+                          <p
+                            key={`${snippet.doc_id}-${snippet.start}-${index}`}
+                            className="rounded bg-amber-50 px-2 py-1 text-xs"
+                          >
+                            {snippet.excerpt}
+                          </p>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </Card>
+      ) : null}
+
       {template && activeTab.id === "form" ? (
         <Card className="space-y-4">
           <h2 className="text-base font-semibold">Questionnaire</h2>
+
+          <div className="rounded-[var(--pp-radius-md)] border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Model output is a draft; verify before submission.
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button onClick={handleRunAutofill} disabled={autofilling || documents.length === 0}>
+              {autofilling ? "Autofilling..." : "Autofill from evidence"}
+            </Button>
+            {documents.length === 0 ? (
+              <p className="text-xs text-[var(--pp-color-muted)]">Upload a document in Evidence first.</p>
+            ) : null}
+          </div>
+
           {template.questionnaire.sections.map((section) => (
             <div key={section.id} className="space-y-3 rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] p-3">
               <div>
@@ -423,9 +684,22 @@ function CaseWorkspaceScreen() {
                 {section.items.map((item) => {
                   const answer =
                     answers[item.fieldId] ?? ({ value: null, state: "missing", note: null } as QuestionnaireAnswer);
+                  const fill = autofillByFieldId.get(item.fieldId) ?? null;
+                  const statusView = fieldStatusColor(item.fieldId, answer);
 
                   return (
                     <div key={item.fieldId} className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`rounded px-2 py-1 text-xs font-semibold ${statusView.badge}`}>
+                          {statusView.label}
+                        </span>
+                        {fill && fill.status !== "missing" && fill.citations.length > 0 ? (
+                          <Button variant="ghost" onClick={() => setOpenCitationFieldId(item.fieldId)}>
+                            Why?
+                          </Button>
+                        ) : null}
+                      </div>
+
                       <label className="block space-y-1 text-sm font-medium">
                         <span>
                           {item.label} {item.required ? "*" : ""}
@@ -481,6 +755,10 @@ function CaseWorkspaceScreen() {
         <Card className="space-y-4">
           <h2 className="text-base font-semibold">Review and Attest</h2>
 
+          <div className="rounded-[var(--pp-radius-md)] border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Model output is a draft; verify before submission.
+          </div>
+
           {questionnaire && questionnaire.missing_required_field_ids.length > 0 ? (
             <div className="rounded-[var(--pp-radius-md)] border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
               Missing required fields: {questionnaire.missing_required_field_ids.join(", ")}
@@ -526,15 +804,6 @@ function CaseWorkspaceScreen() {
         </Card>
       ) : null}
 
-      {template && activeTab.id === "evidence" ? (
-        <Card>
-          <h2 className="text-base font-semibold">Evidence</h2>
-          <p className="text-sm text-[var(--pp-color-muted)]">
-            Evidence ingestion arrives in Epic 5. Use the requirements checklist to prepare attachments.
-          </p>
-        </Card>
-      ) : null}
-
       {template && activeTab.id === "export" ? (
         <Card className="space-y-3">
           <h2 className="text-base font-semibold">Export</h2>
@@ -555,6 +824,18 @@ function CaseWorkspaceScreen() {
           {toast}
         </p>
       ) : null}
+
+      <CitationDrawer
+        open={openCitationFieldId !== null}
+        fieldLabel={openFieldLabel}
+        fill={openFill}
+        onClose={() => setOpenCitationFieldId(null)}
+        onOpenDocument={(docId) => {
+          setSelectedTab("evidence");
+          setSelectedDocId(docId);
+          setOpenCitationFieldId(null);
+        }}
+      />
 
       <p className="text-xs text-[var(--pp-color-muted)]">Active tab: {activeTab.label}</p>
     </StepShell>

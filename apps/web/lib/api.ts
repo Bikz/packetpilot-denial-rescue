@@ -6,13 +6,19 @@ type RequestOptions = {
   method?: "GET" | "POST" | "PUT" | "DELETE";
   body?: unknown;
   auth?: boolean;
+  headers?: Record<string, string>;
 };
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = "GET", body, auth = false } = options;
+  const { method = "GET", body, auth = false, headers: customHeaders = {} } = options;
+  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...customHeaders,
   };
+
+  if (!isFormData && body !== undefined && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
+  }
 
   if (auth) {
     const token = getSessionToken();
@@ -25,7 +31,8 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method,
     headers,
-    body: body ? JSON.stringify(body) : undefined,
+    body:
+      body === undefined ? undefined : isFormData ? (body as FormData) : JSON.stringify(body),
     cache: "no-store",
   });
 
