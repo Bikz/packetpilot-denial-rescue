@@ -19,8 +19,8 @@ export default function LoginPage() {
   const router = useRouter();
   const nextPath =
     typeof window !== "undefined"
-      ? (new URLSearchParams(window.location.search).get("next") ?? "/settings")
-      : "/settings";
+      ? (new URLSearchParams(window.location.search).get("next") ?? "/queue")
+      : "/queue";
 
   const [email, setEmail] = useState("admin@northwind.com");
   const [password, setPassword] = useState("super-secret-123");

@@ -17,15 +17,15 @@ export default function DonePage() {
             <Link href="/login">
               <Button variant="secondary">Sign in</Button>
             </Link>
-            <Link href="/settings">
-              <Button>Open settings</Button>
+            <Link href="/queue">
+              <Button>Open queue</Button>
             </Link>
           </div>
         </div>
       }
     >
       <p className="text-sm leading-relaxed text-[var(--pp-color-muted)]">
-        You can now sign in, configure deployment and FHIR placeholders, and verify audit events.
+        You can now sign in, create a case, and continue setup in settings.
       </p>
     </StepShell>
   );

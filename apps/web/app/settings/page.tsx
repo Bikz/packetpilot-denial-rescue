@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { Button, Card, StepShell } from "@packetpilot/ui";
@@ -145,6 +146,15 @@ function SettingsScreen() {
         >
           Sign out
         </Button>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Link href="/queue">
+          <Button variant="ghost">Queue</Button>
+        </Link>
+        <Link href="/cases/new">
+          <Button variant="secondary">New case</Button>
+        </Link>
       </div>
 
       <form className="space-y-4" onSubmit={handleSubmit}>

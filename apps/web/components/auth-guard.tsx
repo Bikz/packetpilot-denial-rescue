@@ -18,7 +18,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   useEffect(() => {
     if (!token) {
-      const next = encodeURIComponent(pathname || "/settings");
+      const next = encodeURIComponent(pathname || "/queue");
       router.replace(`/login?next=${next}`);
     }
   }, [pathname, router, token]);
