@@ -5,7 +5,7 @@ import { Button, Card, StepShell } from "@packetpilot/ui";
 export default function ModelPage() {
   return (
     <StepShell
-      eyebrow="Step 3 of 4"
+      eyebrow="Step 3 of 5"
       title="Model environment"
       description="Select where PacketPilot inference runs for this clinic."
       footer={
@@ -13,7 +13,7 @@ export default function ModelPage() {
           <Link href="/onboarding/deployment">
             <Button variant="ghost">Back</Button>
           </Link>
-          <Link href="/onboarding/done">
+          <Link href="/onboarding/admin">
             <Button>Continue</Button>
           </Link>
         </div>

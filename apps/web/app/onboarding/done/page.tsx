@@ -5,20 +5,27 @@ import { Button, StepShell } from "@packetpilot/ui";
 export default function DonePage() {
   return (
     <StepShell
-      eyebrow="Step 4 of 4"
+      eyebrow="Step 5 of 5"
       title="Setup complete"
-      description="Your workspace is ready. Next we will route into the live queue in Epic 2."
+      description="Your workspace is now initialized with tenant settings and audit logging."
       footer={
-        <div className="flex items-center justify-between">
-          <Link href="/onboarding/model">
+        <div className="flex flex-wrap items-center gap-2 justify-between">
+          <Link href="/onboarding/admin">
             <Button variant="ghost">Back</Button>
           </Link>
-          <Button disabled>Go to Queue (Epic 2)</Button>
+          <div className="flex items-center gap-2">
+            <Link href="/login">
+              <Button variant="secondary">Sign in</Button>
+            </Link>
+            <Link href="/settings">
+              <Button>Open settings</Button>
+            </Link>
+          </div>
         </div>
       }
     >
       <p className="text-sm leading-relaxed text-[var(--pp-color-muted)]">
-        For now, confirm install works and verify offline fallback behavior for demo readiness.
+        You can now sign in, configure deployment and FHIR placeholders, and verify audit events.
       </p>
     </StepShell>
   );

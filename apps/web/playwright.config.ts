@@ -1,4 +1,8 @@
+import path from "node:path";
+
 import { defineConfig, devices } from "@playwright/test";
+
+const repoRoot = path.resolve(__dirname, "../..");
 
 export default defineConfig({
   testDir: "./tests",
@@ -8,13 +12,30 @@ export default defineConfig({
     baseURL: "http://127.0.0.1:3000",
     trace: "on-first-retry",
   },
-  webServer: {
-    command: "pnpm dev",
-    cwd: __dirname,
-    port: 3000,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: [
+    {
+      command: "pnpm --filter api dev",
+      cwd: repoRoot,
+      port: 8000,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      env: {
+        ...process.env,
+        APP_SECRET: "playwright-secret-0123456789-abcdefghijklmnopqrstuvwxyz",
+      },
+    },
+    {
+      command: "pnpm --filter web dev",
+      cwd: repoRoot,
+      port: 3000,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      env: {
+        ...process.env,
+        NEXT_PUBLIC_API_BASE_URL: "http://127.0.0.1:8000",
+      },
+    },
+  ],
   projects: [
     {
       name: "chromium",
