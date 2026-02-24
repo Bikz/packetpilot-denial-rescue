@@ -12,8 +12,22 @@ VALID_FIELD_STATES = {"missing", "filled", "verified"}
 
 
 def _templates_dir() -> Path:
-    repo_root = Path(__file__).resolve().parents[3]
-    return repo_root / "packages" / "templates" / "data"
+    candidate_dirs = [
+        Path(__file__).resolve().parents[3] / "packages" / "templates" / "data",
+        Path.cwd() / "packages" / "templates" / "data",
+        Path(__file__).resolve().parent / "templates" / "data",
+        Path(__file__).resolve().parent.parent / "templates" / "data",
+        Path("/workspace/packages/templates/data"),
+        Path("/workspace/apps/api/templates/data"),
+    ]
+
+    for directory in candidate_dirs:
+        if directory.exists():
+            return directory
+
+    raise RuntimeError(
+        "Templates not found. Checked: " + ", ".join(str(path) for path in candidate_dirs)
+    )
 
 
 @lru_cache(maxsize=1)

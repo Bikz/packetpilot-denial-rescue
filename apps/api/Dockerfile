@@ -7,13 +7,42 @@ WORKDIR /workspace
 
 RUN pip install --no-cache-dir uv
 
-COPY apps/api/pyproject.toml apps/api/uv.lock /workspace/apps/api/
+# Copy build context into a stable location so this Dockerfile can work whether Render
+# builds from `apps/api` (legacy) or repository root (monorepo).
+COPY . /workspace/source
+
+RUN mkdir -p /workspace/apps/api /workspace/packages /workspace/apps-api-root
+
+RUN if [ -d /workspace/source/apps/api ]; then \
+        cp /workspace/source/apps/api/pyproject.toml /workspace/apps/api/; \
+        cp /workspace/source/apps/api/uv.lock /workspace/apps/api/; \
+        cp -R /workspace/source/apps/api/app /workspace/apps/api/; \
+        cp -R /workspace/source/apps/api/scripts /workspace/apps/api/; \
+        if [ -d /workspace/source/packages/templates ]; then \
+            cp -R /workspace/source/packages/templates /workspace/packages/; \
+        fi; \
+        if [ -d /workspace/source/apps/api/templates ]; then \
+            cp -R /workspace/source/apps/api/templates /workspace/apps/api/; \
+        fi; \
+    else \
+        cp /workspace/source/pyproject.toml /workspace/apps/api/; \
+        cp /workspace/source/uv.lock /workspace/apps/api/; \
+        cp -R /workspace/source/app /workspace/apps-api-root/; \
+        cp -R /workspace/source/scripts /workspace/apps-api-root/; \
+        cp -R /workspace/apps-api-root/app /workspace/apps/api/; \
+        cp -R /workspace/apps-api-root/scripts /workspace/apps/api/; \
+        if [ -d /workspace/source/packages/templates ]; then \
+            cp -R /workspace/source/packages/templates /workspace/packages/; \
+        fi; \
+        if [ -d /workspace/source/templates ]; then \
+            cp -R /workspace/source/templates /workspace/apps/api/; \
+        fi; \
+    fi
+
 WORKDIR /workspace/apps/api
 RUN uv sync --no-dev
 
-COPY apps/api/app /workspace/apps/api/app
-COPY apps/api/scripts /workspace/apps/api/scripts
-COPY packages/templates /workspace/packages/templates
+RUN rm -rf /workspace/source /workspace/apps-api-root
 
 EXPOSE 8000
 
