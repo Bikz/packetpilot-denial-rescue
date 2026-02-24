@@ -7,6 +7,7 @@ from pydantic import BaseModel, EmailStr, Field
 
 RoleType = Literal["coordinator", "clinician", "admin"]
 DeploymentMode = Literal["standalone", "smart_on_fhir"]
+CaseStatus = Literal["draft", "in_review", "submitted", "denied"]
 
 
 class UserResponse(BaseModel):
@@ -64,3 +65,41 @@ class AuditEventResponse(BaseModel):
     actor_email: str | None
     metadata: dict[str, Any] | None
     created_at: datetime
+
+
+class FhirPatientSummaryResponse(BaseModel):
+    id: str
+    display_name: str
+    birth_date: str | None = None
+    gender: str | None = None
+
+
+class FhirPatientSnapshotResponse(BaseModel):
+    patient: dict[str, Any]
+    coverage: list[dict[str, Any]]
+    conditions: list[dict[str, Any]]
+    observations: list[dict[str, Any]]
+    medicationRequests: list[dict[str, Any]]
+    serviceRequests: list[dict[str, Any]]
+    documentReferences: list[dict[str, Any]]
+
+
+class CaseCreateRequest(BaseModel):
+    patient_id: str = Field(min_length=1, max_length=128)
+    payer_label: str = Field(min_length=1, max_length=255)
+    service_line_template_id: str = Field(min_length=1, max_length=128)
+
+
+class CaseStatusUpdateRequest(BaseModel):
+    status: CaseStatus
+
+
+class CaseResponse(BaseModel):
+    id: int
+    org_id: int
+    patient_id: str
+    payer_label: str
+    service_line_template_id: str
+    status: CaseStatus
+    created_at: datetime
+    updated_at: datetime

@@ -71,3 +71,19 @@ class AuditEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
     actor: Mapped[User | None] = relationship("User")
+
+
+class Case(Base):
+    __tablename__ = "cases"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    org_id: Mapped[int] = mapped_column(ForeignKey("orgs.id"), nullable=False, index=True)
+    patient_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    payer_label: Mapped[str] = mapped_column(String(255), nullable=False)
+    service_line_template_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    status: Mapped[str] = mapped_column(String(64), nullable=False, default="draft")
+    created_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )

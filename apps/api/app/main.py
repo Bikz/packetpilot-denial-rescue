@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.db import init_db
-from app.routers import audit, auth, settings
+from app.routers import audit, auth, cases, fhir, settings
 
 app = FastAPI(title="PacketPilot API", version="0.2.0")
 
@@ -37,3 +37,5 @@ def healthz() -> dict[str, str]:
 app.include_router(auth.router)
 app.include_router(settings.router)
 app.include_router(audit.router)
+app.include_router(fhir.router)
+app.include_router(cases.router)
