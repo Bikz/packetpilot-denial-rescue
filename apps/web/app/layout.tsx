@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import "@packetpilot/ui/styles.css";
 import "./globals.css";
+import { DevSwReset } from "@/components/dev-sw-reset";
 
 export const metadata: Metadata = {
   title: "PacketPilot",
@@ -16,7 +17,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <DevSwReset />
+        {children}
+      </body>
     </html>
   );
 }

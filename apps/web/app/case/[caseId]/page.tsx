@@ -228,6 +228,8 @@ function CaseWorkspaceScreen() {
   const [formSectionId, setFormSectionId] = useState<string>("");
   const [uploading, setUploading] = useState(false);
   const [uploadingDenial, setUploadingDenial] = useState(false);
+  const [selectedEvidenceFileName, setSelectedEvidenceFileName] = useState<string | null>(null);
+  const [selectedDenialFileName, setSelectedDenialFileName] = useState<string | null>(null);
   const [autofilling, setAutofilling] = useState(false);
   const [exportingType, setExportingType] = useState<"initial" | "appeal" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -354,6 +356,59 @@ function CaseWorkspaceScreen() {
     }));
   }
 
+  function quickVerifyField(fieldId: string, fill: AutofillFieldFill | null) {
+    setAnswers((current) => {
+      const previous = current[fieldId] ?? { value: null, state: "missing", note: null };
+      const resolvedValue =
+        previous.value && previous.value.trim().length > 0
+          ? previous.value
+          : fill?.value && fill.value.trim().length > 0
+            ? fill.value
+            : null;
+
+      return {
+        ...current,
+        [fieldId]: {
+          ...previous,
+          value: resolvedValue,
+          state: "verified",
+        },
+      };
+    });
+  }
+
+  function quickVerifyAllDraftFields() {
+    if (!template) return;
+
+    setAnswers((current) => {
+      const next = { ...current };
+      for (const section of template.questionnaire.sections) {
+        for (const item of section.items) {
+          const previous = next[item.fieldId] ?? { value: null, state: "missing", note: null };
+          const fill = autofillByFieldId.get(item.fieldId) ?? null;
+          const resolvedValue =
+            previous.value && previous.value.trim().length > 0
+              ? previous.value
+              : fill?.value && fill.value.trim().length > 0
+                ? fill.value
+                : null;
+
+          if (resolvedValue) {
+            next[item.fieldId] = {
+              ...previous,
+              value: resolvedValue,
+              state: "verified",
+            };
+          }
+        }
+      }
+      return next;
+    });
+
+    setToast("Draft fields marked verified. Save answers to persist.");
+    setTimeout(() => setToast(null), 2600);
+  }
+
   async function refreshQuestionnaire() {
     if (!caseRecord || !template) return;
 
@@ -432,7 +487,10 @@ function CaseWorkspaceScreen() {
   async function handleUploadDocument() {
     if (!caseRecord) return;
     const file = fileInputRef.current?.files?.[0];
-    if (!file) return;
+    if (!file) {
+      setError("Choose an evidence file before uploading.");
+      return;
+    }
 
     setUploading(true);
     setError(null);
@@ -457,6 +515,7 @@ function CaseWorkspaceScreen() {
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
+      setSelectedEvidenceFileName(null);
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Failed to upload document");
     } finally {
@@ -489,7 +548,10 @@ function CaseWorkspaceScreen() {
   async function handleUploadDenialLetter() {
     if (!caseRecord) return;
     const file = denialInputRef.current?.files?.[0];
-    if (!file) return;
+    if (!file) {
+      setError("Choose a denial letter file before uploading.");
+      return;
+    }
 
     setUploadingDenial(true);
     setError(null);
@@ -512,6 +574,7 @@ function CaseWorkspaceScreen() {
       if (denialInputRef.current) {
         denialInputRef.current.value = "";
       }
+      setSelectedDenialFileName(null);
     } catch (denialError) {
       setError(denialError instanceof Error ? denialError.message : "Failed to parse denial letter");
     } finally {
@@ -826,11 +889,32 @@ function CaseWorkspaceScreen() {
               <div className="rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] p-3">
                 <p className="text-sm font-semibold">Upload evidence document</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <input ref={fileInputRef} type="file" accept=".txt,.md,.pdf,.png,.jpg,.jpeg" />
+                  <input
+                    id="evidence-upload-input"
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".txt,.md,.pdf,.png,.jpg,.jpeg"
+                    className="sr-only"
+                    onChange={(event) =>
+                      setSelectedEvidenceFileName(event.target.files?.[0]?.name ?? null)
+                    }
+                  />
+                  <label
+                    htmlFor="evidence-upload-input"
+                    className="inline-flex h-11 cursor-pointer items-center justify-center rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-[var(--pp-color-surface)] px-4 text-sm font-semibold text-[var(--pp-color-text)] transition-all duration-200 hover:bg-[var(--pp-color-surface-strong)]"
+                  >
+                    Choose file
+                  </label>
+                  <span className="inline-flex h-11 items-center rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-white px-3 text-sm text-[var(--pp-color-muted)]">
+                    {selectedEvidenceFileName ?? "No file selected"}
+                  </span>
                   <Button onClick={handleUploadDocument} disabled={uploading}>
                     {uploading ? "Uploading..." : "Upload"}
                   </Button>
                 </div>
+                <p className="mt-2 text-xs text-[var(--pp-color-muted)]">
+                  Accepted: .txt, .md, .pdf, .png, .jpg, .jpeg
+                </p>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
@@ -865,33 +949,60 @@ function CaseWorkspaceScreen() {
                   {!selectedDocument ? (
                     <p className="text-sm text-[var(--pp-color-muted)]">Select a document to inspect extracted text.</p>
                   ) : (
-                    <div className="space-y-2">
-                      <div className="rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-[var(--pp-color-surface)] px-3 py-2">
+                    <div className="overflow-hidden rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-white">
+                      <div className="border-b border-[var(--pp-color-border)] bg-[var(--pp-color-surface)] px-3 py-2">
                         <p className="text-sm font-semibold">{selectedDocument.filename}</p>
                         <p className="text-xs text-[var(--pp-color-muted)]">{selectedDocument.content_type}</p>
                       </div>
 
-                      <div className="max-h-44 overflow-auto rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-white p-3 text-xs leading-relaxed whitespace-pre-wrap">
-                        {selectedDocument.extracted_text || "No text extracted"}
-                      </div>
+                      <div className="space-y-3 p-3">
+                        <div className="max-h-44 overflow-auto rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-white p-3 text-xs leading-relaxed whitespace-pre-wrap">
+                          {selectedDocument.extracted_text || "No text extracted"}
+                        </div>
 
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--pp-color-muted)]">
-                          Detected snippets
-                        </p>
-                        <div className="space-y-1">
-                          {selectedDocument.snippets.length === 0 ? (
-                            <p className="text-xs text-[var(--pp-color-muted)]">No snippets detected.</p>
-                          ) : (
-                            selectedDocument.snippets.map((snippet, index) => (
-                              <p
-                                key={`${snippet.doc_id}-${snippet.start}-${index}`}
-                                className="rounded bg-amber-50 px-2 py-1 text-xs"
-                              >
-                                {snippet.excerpt}
-                              </p>
-                            ))
-                          )}
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--pp-color-muted)]">
+                            Detected snippets
+                          </p>
+                          <div className="mt-1 space-y-1">
+                            {selectedDocument.snippets.length === 0 ? (
+                              <p className="text-xs text-[var(--pp-color-muted)]">No snippets detected.</p>
+                            ) : (
+                              selectedDocument.snippets.map((snippet, index) => (
+                                <p
+                                  key={`${snippet.doc_id}-${snippet.start}-${index}`}
+                                  className="rounded bg-amber-50 px-2 py-1 text-xs"
+                                >
+                                  {snippet.excerpt}
+                                </p>
+                              ))
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-[var(--pp-color-surface)] p-2">
+                          <p className="text-xs text-[var(--pp-color-muted)]">
+                            Next step: apply extracted evidence to draft questionnaire fields.
+                          </p>
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <Button
+                              className="h-9 px-3 text-xs"
+                              onClick={() => {
+                                void handleRunAutofill();
+                                setSelectedTab("form");
+                              }}
+                              disabled={autofilling || evidenceDocuments.length === 0}
+                            >
+                              {autofilling ? "Applying..." : "Apply to form"}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              className="h-9 px-3 text-xs"
+                              onClick={() => setSelectedTab("form")}
+                            >
+                              Go to Form
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -902,7 +1013,25 @@ function CaseWorkspaceScreen() {
               <div className="rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] p-3">
                 <p className="text-sm font-semibold">Upload denial letter (Fix-forward / appeal)</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <input ref={denialInputRef} type="file" accept=".txt,.md,.pdf,.png,.jpg,.jpeg" />
+                  <input
+                    id="denial-upload-input"
+                    ref={denialInputRef}
+                    type="file"
+                    accept=".txt,.md,.pdf,.png,.jpg,.jpeg"
+                    className="sr-only"
+                    onChange={(event) =>
+                      setSelectedDenialFileName(event.target.files?.[0]?.name ?? null)
+                    }
+                  />
+                  <label
+                    htmlFor="denial-upload-input"
+                    className="inline-flex h-11 cursor-pointer items-center justify-center rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-[var(--pp-color-surface)] px-4 text-sm font-semibold text-[var(--pp-color-text)] transition-all duration-200 hover:bg-[var(--pp-color-surface-strong)]"
+                  >
+                    Choose denial file
+                  </label>
+                  <span className="inline-flex h-11 items-center rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-white px-3 text-sm text-[var(--pp-color-muted)]">
+                    {selectedDenialFileName ?? "No file selected"}
+                  </span>
                   <Button onClick={handleUploadDenialLetter} disabled={uploadingDenial}>
                     {uploadingDenial ? "Parsing..." : "Upload denial letter"}
                   </Button>
@@ -961,9 +1090,19 @@ function CaseWorkspaceScreen() {
               <div className="rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-[var(--pp-color-surface)] p-3">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm">AI-assisted draft fill</p>
-                  <Button onClick={handleRunAutofill} disabled={autofilling || evidenceDocuments.length === 0}>
-                    {autofilling ? "Autofilling..." : "Refresh from evidence"}
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      className="h-10 px-3 text-xs"
+                      onClick={quickVerifyAllDraftFields}
+                      disabled={autofilling}
+                    >
+                      Verify AI drafts
+                    </Button>
+                    <Button onClick={handleRunAutofill} disabled={autofilling || evidenceDocuments.length === 0}>
+                      {autofilling ? "Autofilling..." : "Refresh from evidence"}
+                    </Button>
+                  </div>
                 </div>
                 {evidenceDocuments.length === 0 ? (
                   <p className="pp-caption mt-2 text-[var(--pp-color-muted)]">Upload evidence first to enable autofill.</p>
@@ -1025,9 +1164,18 @@ function CaseWorkspaceScreen() {
                                   <span className="text-sm font-medium">
                                     {item.label} {item.required ? "*" : ""}
                                   </span>
-                                  <span className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-semibold ${statusView.badge}`}>
-                                    {statusView.icon} {statusView.label}
-                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    <span className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-semibold ${statusView.badge}`}>
+                                      {statusView.icon} {statusView.label}
+                                    </span>
+                                    <Button
+                                      variant={answer.state === "verified" ? "secondary" : "ghost"}
+                                      className="h-8 px-2 text-xs"
+                                      onClick={() => quickVerifyField(item.fieldId, fill)}
+                                    >
+                                      ✓ Verify
+                                    </Button>
+                                  </div>
                                 </div>
 
                                 {renderFieldInput(item, answer)}
@@ -1095,14 +1243,86 @@ function CaseWorkspaceScreen() {
               <h2 className="text-base font-semibold">Review and Attest</h2>
               <DraftSafetyBanner />
 
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-[var(--pp-color-surface)] px-3 py-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--pp-color-muted)]">
+                    Required fields
+                  </p>
+                  <p className="mt-1 text-xl font-semibold">{template.requiredFieldIds.length}</p>
+                </div>
+                <div className="rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-[var(--pp-color-surface)] px-3 py-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--pp-color-muted)]">
+                    Missing required
+                  </p>
+                  <p className="mt-1 text-xl font-semibold">
+                    {questionnaire?.missing_required_field_ids.length ?? template.requiredFieldIds.length}
+                  </p>
+                </div>
+                <div className="rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-[var(--pp-color-surface)] px-3 py-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--pp-color-muted)]">
+                    Attestation
+                  </p>
+                  <p className="mt-1 text-sm font-semibold">
+                    {questionnaire?.attested_at ? "Completed" : "Pending clinician sign-off"}
+                  </p>
+                </div>
+              </div>
+
               {questionnaire && questionnaire.missing_required_field_ids.length > 0 ? (
                 <div className="rounded-[var(--pp-radius-md)] border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
                   Missing required fields ({questionnaire.missing_required_field_ids.length}):{" "}
-                  {questionnaire.missing_required_field_ids.join(", ")}
+                  {questionnaire.missing_required_field_ids
+                    .map((fieldId) => itemByFieldId.get(fieldId)?.label ?? fieldId)
+                    .join(", ")}
                 </div>
               ) : (
-                <p className="text-sm text-emerald-700">All required fields are complete.</p>
+                <p className="text-sm text-emerald-700">All required fields are complete and ready for attestation.</p>
               )}
+
+              <div className="space-y-2 rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] p-3">
+                <h3 className="text-sm font-semibold">Required field review</h3>
+                <div className="space-y-2">
+                  {template.requiredFieldIds.map((fieldId) => {
+                    const item = itemByFieldId.get(fieldId);
+                    const fill = autofillByFieldId.get(fieldId) ?? null;
+                    const answer =
+                      answers[fieldId] ?? ({ value: null, state: "missing", note: null } as QuestionnaireAnswer);
+                    const statusView = getFieldValidationState(answer, fill);
+                    const displayValue = (answer.value ?? fill?.value ?? "").trim();
+                    return (
+                      <div
+                        key={fieldId}
+                        className="rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-[var(--pp-color-surface)] px-3 py-2"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold">{item?.label ?? fieldId}</p>
+                            <p className="text-xs text-[var(--pp-color-muted)]">
+                              {displayValue || "No value provided yet."}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-semibold ${statusView.badge}`}
+                            >
+                              {statusView.icon} {statusView.label}
+                            </span>
+                            {fill && fill.citations.length > 0 ? (
+                              <Button
+                                variant="ghost"
+                                className="h-8 px-2 text-xs"
+                                onClick={() => setOpenCitationFieldId(fieldId)}
+                              >
+                                {fill.citations.length} source{fill.citations.length > 1 ? "s" : ""}
+                              </Button>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
 
               {questionnaire?.attested_at ? (
                 <p className="text-sm text-emerald-700">
@@ -1169,7 +1389,16 @@ function CaseWorkspaceScreen() {
               </div>
 
               {!questionnaire?.export_enabled ? (
-                <p className="text-xs text-amber-700">Clinician attestation is required before export.</p>
+                <div className="flex flex-wrap items-center gap-2 rounded-[var(--pp-radius-md)] border border-amber-200 bg-amber-50 px-3 py-2">
+                  <p className="text-xs text-amber-700">Clinician attestation is required before export.</p>
+                  <Button
+                    variant="ghost"
+                    className="h-8 px-2 text-xs"
+                    onClick={() => setSelectedTab("review")}
+                  >
+                    Go to Review
+                  </Button>
+                </div>
               ) : null}
               {questionnaire?.export_enabled && !denial ? (
                 <p className="text-xs text-[var(--pp-color-muted)]">

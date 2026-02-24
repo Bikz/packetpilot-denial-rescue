@@ -31,7 +31,7 @@ export function StepShell({
     >
       <Card
         className={cn(
-          "relative overflow-hidden space-y-6 p-6 sm:p-7 bg-[var(--pp-color-background)]",
+          "relative space-y-6 p-6 sm:p-7 bg-[var(--pp-color-background)]",
           layout === "workspace" ? "min-h-[calc(100vh-3rem)] md:p-8 lg:p-8" : "",
         )}
       >

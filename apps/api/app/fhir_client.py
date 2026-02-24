@@ -14,6 +14,13 @@ class FhirClientError(RuntimeError):
 DEMO_PATIENTS: list[dict[str, Any]] = [
     {
         "resourceType": "Patient",
+        "id": "pat-001",
+        "name": [{"text": "Alex Morgan"}],
+        "gender": "female",
+        "birthDate": "1985-01-16",
+    },
+    {
+        "resourceType": "Patient",
         "id": "demo-001",
         "name": [{"text": "Ava Thompson"}],
         "gender": "female",

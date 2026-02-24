@@ -1,0 +1,22 @@
+Encounter Date: 2026-02-20
+Rendering Clinician: Jordan Lee, MD
+Patient: Alex Morgan (pat-001)
+
+Primary diagnosis: Lumbar radiculopathy
+Symptom duration (weeks): 14
+Neurologic deficit present: yes
+Conservative therapy duration (weeks): 10
+Physical therapy trial documented: yes
+Date of prior imaging: 2025-10-22
+
+Red flag symptoms: Progressive left leg weakness, persistent radicular pain, functional decline with ambulation.
+
+Clinical rationale: Persistent radicular pain with objective neurologic deficits (left dorsiflexion weakness, sensory loss in L5 distribution) and failure of >8 weeks of conservative therapy support medical necessity for lumbar spine MRI.
+Clinical rationale (payer-facing): MRI is required now to evaluate ongoing neurologic compromise, correlate with progressive symptoms, and direct next-step treatment planning after failed non-operative management.
+Medical necessity rationale: The requested MRI is medically necessary due to documented neurologic findings, prolonged symptoms, and inadequate response to PT/medication/activity modification.
+
+Assessment summary:
+- Positive straight-leg raise on the left at 40 degrees.
+- Mild left ankle dorsiflexion weakness (4/5).
+- Decreased sensation in L5 dermatome distribution.
+- PT and home exercise adherence documented with insufficient improvement.

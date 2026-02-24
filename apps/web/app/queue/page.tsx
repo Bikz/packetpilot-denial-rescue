@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
 
 import { Button, Card, StepShell } from "@packetpilot/ui";
 
@@ -92,26 +91,9 @@ function QueueScreen() {
           </Card>
         ) : null}
 
-        <motion.div
-          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-          initial="hidden"
-          animate="show"
-          variants={{
-            hidden: { opacity: 0 },
-            show: {
-              opacity: 1,
-              transition: { staggerChildren: 0.06 },
-            },
-          }}
-        >
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {cases.map((item) => (
-            <motion.div
-              key={item.id}
-              variants={{
-                hidden: { opacity: 0, y: 12 },
-                show: { opacity: 1, y: 0, transition: { duration: 0.18 } },
-              }}
-            >
+            <div key={item.id}>
               <Link href={`/case/${item.id}`}>
                 <Card className="h-full space-y-3">
                   <div className="flex items-center justify-between">
@@ -127,9 +109,9 @@ function QueueScreen() {
                   </p>
                 </Card>
               </Link>
-            </motion.div>
+            </div>
           ))}
-        </motion.div>
+        </div>
       </WorkspaceFrame>
 
     </StepShell>

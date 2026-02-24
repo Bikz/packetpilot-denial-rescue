@@ -1,0 +1,33 @@
+Aetna Gold Utilization Management
+Reference ID: DEN-2026-041
+Date: 2026-02-24
+Patient: Alex Morgan (pat-001)
+Requested Service: Lumbar Spine MRI (without contrast)
+Decision: DENIED
+
+Reason for Denial:
+Medical necessity was not established based on the submitted documentation.
+Current records did not sufficiently demonstrate objective neurologic findings,
+failed conservative therapy with duration, or complete prior imaging context.
+
+Clinical policy references:
+- Musculoskeletal Imaging Guideline MSK-204 (Lumbar Spine MRI).
+- Requires documented neurologic deficit OR red-flag progression with failed conservative treatment.
+- Requires clear timeline of symptom persistence and prior treatment response.
+
+Specific findings from review:
+- Neurologic exam elements were present but incompletely tied to functional decline.
+- Conservative care history was noted but lacked a concise treatment-response summary.
+- Prior imaging date was listed, but interpretation context for current symptoms was limited.
+- Medical necessity statement did not fully connect objective findings to decision impact.
+
+To Reconsider This Determination, Please Submit:
+- Updated clinical note with neurologic exam findings.
+- Documentation of conservative therapy duration and outcomes.
+- Prior imaging report and relevant interpretation.
+- Clarified clinical rationale connecting symptoms to requested MRI.
+- Brief payer-facing summary linking each required criterion to chart evidence.
+- Any interval worsening, falls, or progression markers since prior imaging.
+
+Appeal Deadline: 2026-03-10
+Please include the reference ID on all appeal correspondence.
