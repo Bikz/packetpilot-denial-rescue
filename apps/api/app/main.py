@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.db import init_db
-from app.routers import audit, auth, cases, denial, exports, fhir, settings
+from app.routers import audit, auth, cases, denial, exports, fhir, model, settings
 
 
 @asynccontextmanager
@@ -45,3 +45,4 @@ app.include_router(fhir.router)
 app.include_router(cases.router)
 app.include_router(denial.router)
 app.include_router(exports.router)
+app.include_router(model.router)

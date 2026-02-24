@@ -62,3 +62,43 @@ pnpm build
 5. Land in `/case/:caseId` workspace with tab skeleton (Requirements, Evidence, Form, Review, Export).
 6. Update clinic configuration at `/settings`.
 7. Confirm audit events appear on the settings screen.
+
+## Production deploy recommendation
+
+Fastest path for a hackathon-grade public demo:
+
+- `apps/web` on Vercel
+- `apps/api` on Render
+
+Set API CORS to your Vercel URL:
+
+```bash
+ALLOWED_ORIGINS=https://your-vercel-app.vercel.app
+```
+
+## Real MedGemma mode (HAI-DEF proof)
+
+For real model inference (not mock), set these API env vars:
+
+```bash
+MODEL_MODE=medgemma
+MODEL_ID=google/medgemma-1.5-4b-it
+MODEL_DEVICE=cpu
+MODEL_STRICT=1
+HUGGING_FACE_HUB_TOKEN=hf_xxx
+```
+
+Notes:
+- `MODEL_STRICT=1` disables silent fallback to mock extraction on malformed model output.
+- On Apple Silicon local runs, you can try `MODEL_DEVICE=mps`; if unstable, use `cpu`.
+
+Runtime verification endpoint:
+
+```bash
+curl http://localhost:8000/model/status
+```
+
+You should see:
+- `"backend": "medgemma"`
+- `"strict_mode": true`
+- `"model_id": "google/medgemma-1.5-4b-it"`

@@ -44,6 +44,12 @@ class Settings:
         self.model_mode = os.getenv("MODEL_MODE", "mock").lower().strip()
         self.model_id = os.getenv("MODEL_ID", "google/medgemma-1.5-4b-it")
         self.model_device = os.getenv("MODEL_DEVICE", "cpu")
+        self.model_strict = os.getenv("MODEL_STRICT", "0").lower().strip() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
         self.allowed_origins = [
             origin.strip()
             for origin in os.getenv("ALLOWED_ORIGINS", DEFAULT_ALLOWED_ORIGINS).split(",")

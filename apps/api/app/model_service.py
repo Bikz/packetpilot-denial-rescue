@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any, Literal
 
 from app.config import get_settings
@@ -70,6 +71,9 @@ class BaseModelService:
     def extract_field_fills(self, documents: list[ModelDocument]) -> list[FieldFill]:
         raise NotImplementedError
 
+    def runtime_status(self) -> dict[str, Any]:
+        raise NotImplementedError
+
 
 class MockModelService(BaseModelService):
     _regex_map: dict[str, list[str]] = {
@@ -108,6 +112,17 @@ class MockModelService(BaseModelService):
             fills.append(fill)
 
         return fills
+
+    def runtime_status(self) -> dict[str, Any]:
+        return {
+            "backend": "mock",
+            "initialized": True,
+            "model_id": None,
+            "device": None,
+            "strict_mode": False,
+            "fallback_to_mock_count": 0,
+            "last_error": None,
+        }
 
     def _extract_for_field(self, field_id: str, documents: list[ModelDocument]) -> FieldFill:
         patterns = self._regex_map.get(field_id, [])
@@ -151,12 +166,15 @@ class MockModelService(BaseModelService):
 
 
 class MedGemmaModelService(BaseModelService):
-    def __init__(self, model_id: str, device: str) -> None:
+    def __init__(self, model_id: str, device: str, strict_mode: bool) -> None:
         self.model_id = model_id
         self.device = device
+        self.strict_mode = strict_mode
         self._initialized = False
         self._model: Any | None = None
         self._tokenizer: Any | None = None
+        self._last_error: str | None = None
+        self._fallback_to_mock_count = 0
 
     def _initialize(self) -> None:
         if self._initialized:
@@ -165,18 +183,27 @@ class MedGemmaModelService(BaseModelService):
         try:
             from transformers import AutoModelForCausalLM, AutoTokenizer  # type: ignore
         except Exception as exc:  # pragma: no cover
+            self._last_error = str(exc)
             raise RuntimeError(
                 "transformers is required for MODEL_MODE=medgemma. Install optional deps to enable real inference."
             ) from exc
 
-        self._tokenizer = AutoTokenizer.from_pretrained(self.model_id)
-        self._model = AutoModelForCausalLM.from_pretrained(self.model_id)
+        try:
+            self._tokenizer = AutoTokenizer.from_pretrained(self.model_id)
+            self._model = AutoModelForCausalLM.from_pretrained(self.model_id)
+        except Exception as exc:
+            self._last_error = str(exc)
+            raise RuntimeError(
+                f"Failed to load MedGemma model '{self.model_id}'. Verify HF access/token and model ID."
+            ) from exc
 
         if self.device and self.device != "cpu":
             try:  # pragma: no cover
                 self._model.to(self.device)
-            except Exception:
-                pass
+            except Exception as exc:
+                self._last_error = str(exc)
+                if self.strict_mode:
+                    raise RuntimeError(f"Failed to move model to device '{self.device}'.") from exc
 
         self._initialized = True
 
@@ -189,12 +216,25 @@ class MedGemmaModelService(BaseModelService):
         assert self._model is not None
 
         inputs = self._tokenizer(prompt, return_tensors="pt")
+        try:
+            model_device = next(self._model.parameters()).device  # type: ignore[union-attr]
+            inputs = {key: value.to(model_device) for key, value in inputs.items()}
+        except Exception:
+            # Keep CPU tensors if we cannot resolve or move target device.
+            pass
+
         outputs = self._model.generate(**inputs, max_new_tokens=400, do_sample=False)
         decoded = self._tokenizer.decode(outputs[0], skip_special_tokens=True)
 
         parsed = self._parse_output(decoded)
         if parsed is None:
-            # Fall back to deterministic mock parsing to keep workflow resilient.
+            message = "MedGemma response could not be parsed into required JSON output."
+            self._last_error = message
+            if self.strict_mode:
+                raise RuntimeError(message)
+
+            # In non-strict mode, fall back to deterministic parsing to keep workflow resilient.
+            self._fallback_to_mock_count += 1
             return MockModelService().extract_field_fills(documents)
 
         return parsed
@@ -257,9 +297,25 @@ class MedGemmaModelService(BaseModelService):
 
         return result
 
+    def runtime_status(self) -> dict[str, Any]:
+        return {
+            "backend": "medgemma",
+            "initialized": self._initialized,
+            "model_id": self.model_id,
+            "device": self.device,
+            "strict_mode": self.strict_mode,
+            "fallback_to_mock_count": self._fallback_to_mock_count,
+            "last_error": self._last_error,
+        }
 
+
+@lru_cache(maxsize=1)
 def get_model_service() -> BaseModelService:
     settings = get_settings()
     if settings.model_mode == "medgemma":
-        return MedGemmaModelService(settings.model_id, settings.model_device)
+        return MedGemmaModelService(
+            model_id=settings.model_id,
+            device=settings.model_device,
+            strict_mode=settings.model_strict,
+        )
     return MockModelService()

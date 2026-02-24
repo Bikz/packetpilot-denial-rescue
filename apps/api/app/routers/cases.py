@@ -649,7 +649,13 @@ def run_case_autofill(
     model_documents = [
         ModelDocument(id=document.id, text=document.extracted_text) for document in documents
     ]
-    fills = get_model_service().extract_field_fills(model_documents)
+    try:
+        fills = get_model_service().extract_field_fills(model_documents)
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Autofill model unavailable: {exc}",
+        ) from exc
 
     (
         db.query(CaseAutofill)
