@@ -14,6 +14,13 @@ export default defineConfig({
   },
   webServer: [
     {
+      command: "pnpm --filter api mock-fhir",
+      cwd: repoRoot,
+      port: 8081,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    {
       command: "pnpm --filter api dev",
       cwd: repoRoot,
       port: 8000,
@@ -22,6 +29,7 @@ export default defineConfig({
       env: {
         ...process.env,
         APP_SECRET: "playwright-secret-0123456789-abcdefghijklmnopqrstuvwxyz",
+        FHIR_BASE_URL: "http://127.0.0.1:8081/fhir",
       },
     },
     {

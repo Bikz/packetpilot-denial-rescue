@@ -21,7 +21,7 @@ test("login then save settings and show success toast", async ({ page }) => {
     await page.getByRole("link", { name: "Go to login" }).click();
   }
 
-  await page.goto("/login");
+  await page.goto("/login?next=%2Fsettings");
   await page.getByLabel("Email").fill("admin@northwind.com");
   await page.getByLabel("Password").fill("super-secret-123");
   await page.getByRole("button", { name: "Sign in" }).click();
