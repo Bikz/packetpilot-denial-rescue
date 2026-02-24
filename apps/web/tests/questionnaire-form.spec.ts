@@ -32,7 +32,7 @@ async function ensureAdminAndLogin(page: import("@playwright/test").Page) {
   await page.waitForURL("**/queue");
 }
 
-test("create case from queue and land in workspace", async ({ page }) => {
+test("render questionnaire form and persist manual answers", async ({ page }) => {
   await ensureAdminAndLogin(page);
 
   await Promise.all([
@@ -40,15 +40,28 @@ test("create case from queue and land in workspace", async ({ page }) => {
     page.getByRole("link", { name: "New case" }).first().click(),
   ]);
 
-  await expect(page.getByRole("heading", { name: "Create prior auth case" })).toBeVisible();
-
   await page.getByLabel("Patient").selectOption({ index: 0 });
   await page.getByLabel("Payer").fill("Aetna Gold");
-  await expect(page.getByLabel("Service line template")).toHaveValue("MRI Lumbar Spine");
-
   await page.getByRole("button", { name: "Create case" }).click();
 
   await expect(page).toHaveURL(/\/case\/\d+$/);
-  await expect(page.getByRole("heading", { name: /Case #\d+/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Requirements" })).toBeVisible();
+  const caseUrl = page.url();
+
+  await page.getByRole("button", { name: "Form" }).click();
+  await expect(page.getByRole("heading", { name: "Questionnaire" })).toBeVisible();
+
+  await page.getByLabel("Primary diagnosis *").fill("Lumbar radiculopathy");
+  await page
+    .getByLabel("Field state")
+    .first()
+    .selectOption("verified");
+  await page.getByLabel("Field note").first().fill("Pulled from latest progress note");
+
+  await page
+    .getByRole("button", { name: "Save answers" })
+    .evaluate((button) => (button as HTMLButtonElement).click());
+
+  await page.goto(caseUrl);
+  await page.getByRole("button", { name: "Form" }).click();
+  await expect(page.getByLabel("Primary diagnosis *")).toHaveValue("Lumbar radiculopathy");
 });

@@ -14,7 +14,7 @@ const withPWA = withPWAInit({
 });
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@packetpilot/ui", "@packetpilot/fhir"],
+  transpilePackages: ["@packetpilot/ui", "@packetpilot/fhir", "@packetpilot/templates"],
 };
 
 export default withPWA(nextConfig);

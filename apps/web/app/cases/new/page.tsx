@@ -1,5 +1,6 @@
 "use client";
 
+import { MRI_LUMBAR_SPINE_TEMPLATE } from "@packetpilot/templates";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -16,21 +17,7 @@ type FhirPatientSummary = {
   gender: string | null;
 };
 
-type CaseResponse = {
-  id: number;
-  patient_id: string;
-};
-
-const SERVICE_LINE_OPTIONS = [
-  {
-    id: "imaging-mri-lumbar-spine",
-    label: "Imaging: MRI Lumbar Spine",
-  },
-  {
-    id: "medication-glp1",
-    label: "Medication: GLP-1",
-  },
-];
+type CaseResponse = { id: number; patient_id: string };
 
 function NewCaseScreen() {
   const router = useRouter();
@@ -38,7 +25,7 @@ function NewCaseScreen() {
   const [patients, setPatients] = useState<FhirPatientSummary[]>([]);
   const [patientId, setPatientId] = useState("");
   const [payerLabel, setPayerLabel] = useState("Aetna Gold");
-  const [serviceLineTemplateId, setServiceLineTemplateId] = useState(SERVICE_LINE_OPTIONS[0].id);
+  const serviceLineTemplateId = MRI_LUMBAR_SPINE_TEMPLATE.id;
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -142,17 +129,11 @@ function NewCaseScreen() {
 
         <label className="block space-y-1 text-sm font-medium">
           <span>Service line template</span>
-          <select
-            value={serviceLineTemplateId}
-            onChange={(event) => setServiceLineTemplateId(event.target.value)}
-            className="h-11 w-full rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-white px-3"
-          >
-            {SERVICE_LINE_OPTIONS.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          <input
+            value={MRI_LUMBAR_SPINE_TEMPLATE.name}
+            readOnly
+            className="h-11 w-full rounded-[var(--pp-radius-md)] border border-[var(--pp-color-border)] bg-[var(--pp-color-surface)] px-3"
+          />
         </label>
 
         {loading ? <p className="text-sm text-[var(--pp-color-muted)]">Loading patient roster...</p> : null}

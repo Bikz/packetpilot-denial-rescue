@@ -13,6 +13,7 @@
   "dependencies": {
     "@ducanh2912/next-pwa": "^10.2.9",
     "@packetpilot/fhir": "workspace:*",
+    "@packetpilot/templates": "workspace:*",
     "@packetpilot/ui": "workspace:*",
     "next": "16.1.6",
     "react": "19.2.3",
