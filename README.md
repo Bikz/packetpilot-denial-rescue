@@ -28,6 +28,17 @@ This brings up:
 - HAPI FHIR sandbox (`8080`)
 - automatic synthetic FHIR seed import (`fhir-seed`)
 
+## Epic 6 demo run (under 5 minutes)
+
+```bash
+chmod +x infra/scripts/demo_epic6.sh
+./infra/scripts/demo_epic6.sh
+```
+
+This script boots the stack, creates demo users/case, runs autofill, uploads a denial letter,
+generates initial + appeal packet exports, and writes `packet.json`, `metrics.json`, and `packet.pdf`
+under `apps/api/data/demo-artifacts/`.
+
 ## Quality gates
 
 ```bash
