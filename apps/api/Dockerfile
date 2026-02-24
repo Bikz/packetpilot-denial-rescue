@@ -40,7 +40,13 @@ RUN if [ -d /workspace/source/apps/api ]; then \
     fi
 
 WORKDIR /workspace/apps/api
-RUN uv sync --no-dev
+# Keep default image lean for faster Render deploys; install medgemma extra only when needed.
+ARG INSTALL_MEDGEMMA=false
+RUN if [ "$INSTALL_MEDGEMMA" = "true" ]; then \
+        uv sync --no-dev --extra medgemma; \
+    else \
+        uv sync --no-dev; \
+    fi
 
 RUN rm -rf /workspace/source /workspace/apps-api-root
 
