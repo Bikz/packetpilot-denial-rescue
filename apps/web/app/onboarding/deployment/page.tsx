@@ -1,8 +1,28 @@
+"use client";
 import Link from "next/link";
 
-import { Button, Card, StepShell } from "@packetpilot/ui";
+import { useState } from "react";
+
+import { Button, StepShell } from "@packetpilot/ui";
+
+const deploymentOptions = [
+  {
+    id: "standalone",
+    title: "Standalone (recommended)",
+    description: "Manual uploads or local FHIR bundle import for quick setup.",
+  },
+  {
+    id: "smart",
+    title: "SMART-on-FHIR",
+    description: "EHR launch context and OAuth wiring for integrated flows.",
+  },
+] as const;
+
+type DeploymentOption = (typeof deploymentOptions)[number]["id"];
 
 export default function DeploymentPage() {
+  const [selectedDeployment, setSelectedDeployment] = useState<DeploymentOption>("standalone");
+
   return (
     <StepShell
       eyebrow="Step 2 of 4"
@@ -20,18 +40,29 @@ export default function DeploymentPage() {
       }
     >
       <div className="space-y-3">
-        <Card className="space-y-1 border-[var(--pp-color-primary)] bg-[var(--pp-color-primary-foreground)]">
-          <h2 className="text-sm font-semibold">Standalone (recommended)</h2>
-          <p className="text-sm text-[var(--pp-color-text)]">
-            Manual uploads or local FHIR bundle import for quick setup.
-          </p>
-        </Card>
-        <Card className="space-y-1">
-          <h2 className="text-sm font-semibold">SMART-on-FHIR</h2>
-          <p className="text-sm text-[var(--pp-color-text)]">
-            EHR launch context and OAuth wiring for integrated flows.
-          </p>
-        </Card>
+        {deploymentOptions.map((option) => (
+          <label
+            key={option.id}
+            className={`flex items-start gap-3 rounded-[var(--pp-radius-md)] border p-3 transition-all ${
+              selectedDeployment === option.id
+                ? "border-[var(--pp-color-primary)] bg-[var(--pp-color-surface-strong)]"
+                : "border-[var(--pp-color-border)] bg-[var(--pp-color-card)] hover:border-[var(--pp-color-ring)]"
+            }`}
+          >
+            <input
+              type="radio"
+              name="deploymentMode"
+              value={option.id}
+              checked={selectedDeployment === option.id}
+              onChange={(event) => setSelectedDeployment(event.target.value as DeploymentOption)}
+              className="mt-1 h-4 w-4 border-[var(--pp-color-border)] text-[var(--pp-color-primary)]"
+            />
+            <div>
+              <h2 className="text-sm font-semibold">{option.title}</h2>
+              <p className="text-sm text-[var(--pp-color-text)]">{option.description}</p>
+            </div>
+          </label>
+        ))}
       </div>
     </StepShell>
   );
