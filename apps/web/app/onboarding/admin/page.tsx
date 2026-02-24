@@ -79,7 +79,7 @@ export default function OnboardingAdminPage() {
         title="Workspace already initialized"
         description="An admin account already exists for this installation."
         footer={
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <Link href="/onboarding/model">
               <Button variant="ghost">Back</Button>
             </Link>
@@ -102,7 +102,7 @@ export default function OnboardingAdminPage() {
       title="Create first admin account"
       description="Set up your clinic tenant and the first admin user."
       footer={
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <Link href="/onboarding/model">
             <Button variant="ghost">Back</Button>
           </Link>

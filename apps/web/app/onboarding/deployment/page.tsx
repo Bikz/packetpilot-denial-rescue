@@ -9,7 +9,7 @@ export default function DeploymentPage() {
       title="Choose deployment mode"
       description="Pick a mode now; you can adjust this later in settings."
       footer={
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <Link href="/onboarding/welcome">
             <Button variant="ghost">Back</Button>
           </Link>

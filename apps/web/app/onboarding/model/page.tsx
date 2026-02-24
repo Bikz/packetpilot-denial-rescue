@@ -9,7 +9,7 @@ export default function ModelPage() {
       title="Model environment"
       description="Select where PacketPilot inference runs for this clinic."
       footer={
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <Link href="/onboarding/deployment">
             <Button variant="ghost">Back</Button>
           </Link>

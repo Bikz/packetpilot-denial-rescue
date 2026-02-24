@@ -25,10 +25,8 @@ export function StepShell({
   return (
     <main
       className={cn(
-        "relative mx-auto flex min-h-screen w-full flex-col px-5 py-7 sm:px-8 lg:px-10",
-        layout === "workspace"
-          ? "max-w-[72rem] justify-start sm:py-8"
-          : "max-w-[60rem] justify-center",
+        "relative mx-auto flex min-h-screen w-full flex-col justify-start px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-8",
+        "max-w-[75rem]",
         className,
       )}
     >
