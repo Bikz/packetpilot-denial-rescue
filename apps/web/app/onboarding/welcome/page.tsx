@@ -78,7 +78,9 @@ export default function WelcomePage() {
             </p>
             <div className="mt-4 flex flex-col gap-3">
               <Link href="/onboarding/deployment">
-                <Button className="w-full">Start setup</Button>
+                <Button variant="primary" className="w-full px-8 py-3 text-white">
+                  Start setup
+                </Button>
               </Link>
               <div className="flex items-center justify-between gap-2">
                 <p className="pp-caption text-[var(--pp-color-text)]">Already set up?</p>

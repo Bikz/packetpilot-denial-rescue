@@ -34,7 +34,9 @@ export default function DeploymentPage() {
             <Button variant="ghost">Back</Button>
           </Link>
           <Link href="/onboarding/model">
-            <Button>Continue</Button>
+            <Button variant="primary" className="px-8 py-3 text-white">
+              Continue
+            </Button>
           </Link>
         </div>
       }

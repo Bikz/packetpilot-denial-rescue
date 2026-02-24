@@ -35,7 +35,9 @@ export default function ModelPage() {
             <Button variant="ghost">Back</Button>
           </Link>
           <Link href="/onboarding/admin">
-            <Button>Continue</Button>
+            <Button variant="primary" className="px-8 py-3 text-white">
+              Continue
+            </Button>
           </Link>
         </div>
       }
